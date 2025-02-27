@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"finalTaskLMS/agent/types"
 	"finalTaskLMS/globals"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
 )
 
 func CycleTask(a *types.Agent) {
-	ticker := time.NewTicker(1 * time.Millisecond)
+	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+	fmt.Print("qwe")
 
 	for {
 		select {
@@ -23,6 +25,7 @@ func CycleTask(a *types.Agent) {
 				log.Println("Error getting task:", err)
 				continue
 			}
+			processTask(&task, a)
 
 		}
 	}
@@ -63,20 +66,18 @@ func processTask(expression *globals.PrimeEvaluation, a *types.Agent) {
 			return
 		}
 	default:
-		log.Println("Unknown operation")
+		log.Println("Unknown operation", expression)
 		return
 	}
 
-	log.Printf("Task %d calculated: %f", expression.Id, result)
-
-	response := globals.PrimeEvaluationResponse{
-		ParentID:      expression.ParentId,
+	response := globals.PrimeEvaluation{
+		ParentID:      expression.ParentID,
 		Id:            expression.Id,
-		Arg1:          int(expression.Arg1),
-		Arg2:          int(expression.Arg2),
+		Arg1:          expression.Arg1,
+		Arg2:          expression.Arg2,
 		Operation:     expression.Operation,
 		Result:        result,
-		OperationTime: 2,
+		OperationTime: 1,
 	}
 
 	p, err := json.Marshal(response)
@@ -91,6 +92,6 @@ func processTask(expression *globals.PrimeEvaluation, a *types.Agent) {
 	if err != nil {
 		log.Println("can't send request to orchestrator")
 	} else {
-		log.Printf("evaluated expression was successfully send  - %v", p)
+		log.Printf("evaluated expression was successfully send  - %v | result - %f", expression, result)
 	}
 }

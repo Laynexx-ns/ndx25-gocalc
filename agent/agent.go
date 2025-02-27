@@ -49,9 +49,10 @@ func (s *Server) ConfigureRouter() {
 }
 
 func (s *Server) RunServer() {
+	go handlers.CycleTask(s.A)
+
 	if err := s.R.Run(":8081"); err != nil {
 		log.Fatal("qwekrqwkerkopqwkeopr[k")
 	}
 
-	go handlers.HandleEvaluation(s.A)
 }
