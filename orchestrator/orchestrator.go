@@ -34,6 +34,7 @@ func (s *Server) ConfigureRouter() {
 	r.POST(prefix+"/calculate", handlers.AddExpressionHandler(s.O))
 	r.GET(prefix+"/expressions", handlers.GetExpressions(s.O))
 	r.GET(prefix+"/expressions/:id", handlers.GetExpressionsById(s.O))
+	r.GET("internal/task", handlers.GetTasks(s.O))
 
 	s.R = r
 }

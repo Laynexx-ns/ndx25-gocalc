@@ -18,7 +18,7 @@ func GetExpressions(o *types.Orchestrator) gin.HandlerFunc {
 
 		o.Mu.Lock()
 		defer o.Mu.Unlock()
-		for _, v := range o.Queue {
+		for _, v := range o.Expressions {
 			response = append(response, models.ExpressionsResponse{
 				Id:     v.Id,
 				Status: v.Status,

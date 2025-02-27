@@ -1,6 +1,7 @@
 package types
 
 import (
+	"finalTaskLMS/globals"
 	"finalTaskLMS/orchestrator/internal/models"
 	"sync"
 )
@@ -8,16 +9,19 @@ import (
 var once sync.Once
 
 type Orchestrator struct {
-	Mu    sync.Mutex
-	Queue []models.Expressions
+	Mu              sync.Mutex
+	Queue           []globals.PrimeEvaluation
+	SentEvaluations []globals.PrimeEvaluation
+	Expressions     []models.Expressions
 }
 
 func NewOrchestrator() *Orchestrator {
 	var o Orchestrator
 	once.Do(func() {
 		o = Orchestrator{
-			Mu:    sync.Mutex{},
-			Queue: []models.Expressions{},
+			Mu:          sync.Mutex{},
+			Queue:       []globals.PrimeEvaluation{},
+			Expressions: []models.Expressions{},
 		}
 	})
 	return &o

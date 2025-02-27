@@ -34,14 +34,15 @@ func AddExpressionHandler(o *types.Orchestrator) gin.HandlerFunc {
 
 		o.Mu.Lock()
 		defer o.Mu.Unlock()
-		o.Queue = append(o.Queue, models.Expressions{
-			Id:         len(o.Queue),
+		o.Expressions = append(o.Expressions, models.Expressions{
+			Id:         len(o.Expressions),
 			Status:     "pending",
 			Result:     0,
 			Expression: expression.Expression,
 		})
 		c.JSON(200, gin.H{
-			"id": o.Queue[len(o.Queue)-1].Id,
+			"id": o.Expressions[len(o.Expressions)-1].Id,
 		})
+
 	}
 }
