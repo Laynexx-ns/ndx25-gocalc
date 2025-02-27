@@ -11,7 +11,7 @@ type PrimeEvaluation struct {
 	Id            int     `json:"id"`
 	Arg1          float64 `json:"arg1"`
 	Arg2          float64 `json:"arg2"`
-	Operation     rune    `json:"operation"`
+	Operation     string  `json:"operation"`
 	OperationTime int     `json:"operation_time"`
 	Result        float64 `json:"result"`
 }

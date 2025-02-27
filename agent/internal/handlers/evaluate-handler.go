@@ -52,13 +52,13 @@ func processTask(expression *globals.PrimeEvaluation, a *types.Agent) {
 
 	result := 0.0
 	switch expression.Operation {
-	case '+':
+	case "+":
 		result = expression.Arg1 + expression.Arg2
-	case '-':
+	case "-":
 		result = expression.Arg1 - expression.Arg2
-	case '*':
+	case "*":
 		result = expression.Arg1 * expression.Arg2
-	case '/':
+	case "/":
 		if expression.Arg2 != 0 {
 			result = expression.Arg1 / expression.Arg2
 		} else {

@@ -77,7 +77,9 @@ func (s *Server) CreateTasks() {
 						}
 						s.O.Mu.Unlock()
 					case <-s.O.Errchans[i]:
-						close(s.O.Chans[i])
+						if s.O.Chans != nil {
+							close(s.O.Chans[i])
+						}
 						s.O.Mu.Lock()
 						for j, e := range s.O.Expressions {
 							if e.Id == i {

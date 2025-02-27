@@ -29,7 +29,7 @@ func isOperator(ch rune) bool {
 	return ch == '+' || ch == '-' || ch == '*' || ch == '/'
 }
 
-func AddToQueue(a, b float64, operator rune, c chan float64, id int, o *types.Orchestrator) {
+func AddToQueue(a, b float64, operator string, c chan float64, id int, o *types.Orchestrator) {
 	fmt.Println("invoked add to queue")
 	o.Mu.Lock()
 	defer o.Mu.Unlock()
@@ -87,16 +87,6 @@ func WatchQueue(parentId int, c chan float64, id int, o *types.Orchestrator) {
 	}
 }
 
-func NotifySubscribers(parentId int) {
-	o.Mu.Lock()
-	defer o.Mu.Unlock()
-
-	if sub, ok := o.Subs[parentId]; ok {
-		close(sub)
-		delete(o.Subs, parentId)
-	}
-}
-
 func Parse(expression string) ([]string, error) {
 	var result []string
 	var operators []rune
@@ -142,41 +132,45 @@ func Parse(expression string) ([]string, error) {
 }
 
 func evaluate(parsedExpression []string) (float64, error) {
-	var evex []string
-	ch := make(chan float64)
-
+	stack := []float64{}
+	//ch := make(chan float64)
 	id := 0
-	evex = parsedExpression
-	for i, v := range parsedExpression {
-		_, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			a, errA := strconv.ParseFloat(evex[i-2], 64)
-			b, errB := strconv.ParseFloat(evex[i-1], 64)
-			if errA != nil || errB != nil {
-				return 0, fmt.Errorf("чет ты какую-то фигню на сервер отправил :(. А я, бездарь не обработал :((")
+
+	for _, token := range parsedExpression {
+		if num, err := strconv.ParseFloat(token, 64); err == nil {
+			stack = append(stack, num)
+		} else if isOperator2(token) {
+			if len(stack) < 2 {
+				return 0, fmt.Errorf("недостаточно операндов для оператора %s", token)
 			}
-			AddToQueue(a, b, rune(v[0]), ch, id, o)
+			b := stack[len(stack)-1]
+			a := stack[len(stack)-2]
+			stack = stack[:len(stack)-2]
+
+			resultChan := make(chan float64, 1)
+			AddToQueue(a, b, token, resultChan, id, o)
+			id++
+
 			select {
-			case res := <-ch:
-				evex = append(evex[:i-2], append([]string{fmt.Sprintf("%f", res)}, evex[i+1:]...)...)
-				i -= 2
+			case res := <-resultChan:
+				stack = append(stack, res)
 			case <-time.After(5 * time.Second):
-				return 0, fmt.Errorf("таймаут агента")
+				return 0, fmt.Errorf("таймаут операции %s", token)
 			}
+		} else {
+			return 0, fmt.Errorf("неверный токен: %s", token)
 		}
-		id++
-
-	}
-	if len(evex) != 1 {
-		return 0, fmt.Errorf("мой калькулятор не работает, тильт")
 	}
 
-	result, err := strconv.ParseFloat(evex[0], 64)
-	if err != nil {
-		return 0, fmt.Errorf("мой калькулятор не работает, тильт")
+	if len(stack) != 1 {
+		return 0, fmt.Errorf("неверное выражение")
 	}
 
-	return result, nil
+	return stack[0], nil
+}
+
+func isOperator2(token string) bool {
+	return token == "+" || token == "-" || token == "*" || token == "/"
 }
 
 func Calc(expression string, resChan chan float64, errChan chan error, PID int, orch *types.Orchestrator) {
@@ -193,6 +187,8 @@ func Calc(expression string, resChan chan float64, errChan chan error, PID int, 
 		errChan <- err
 
 	}
-	resChan <- res
+	if resChan != nil {
+		resChan <- res
+	}
 
 }
