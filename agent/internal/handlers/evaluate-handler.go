@@ -48,7 +48,7 @@ func getTask() (globals.PrimeEvaluation, error) {
 	return expression, nil
 }
 
-func processTask(expression *globals.PrimeEvaluation, a *types.Agent) {
+func processTask(expression *globals.PrimeEvaluation, a *types.Agent) float64 {
 
 	result := 0.0
 	switch expression.Operation {
@@ -63,11 +63,11 @@ func processTask(expression *globals.PrimeEvaluation, a *types.Agent) {
 			result = expression.Arg1 / expression.Arg2
 		} else {
 			log.Println("Division by zero")
-			return
+			return 0
 		}
 	default:
 		log.Println("Unknown operation", expression)
-		return
+		return 0
 	}
 
 	response := globals.PrimeEvaluation{
@@ -83,7 +83,7 @@ func processTask(expression *globals.PrimeEvaluation, a *types.Agent) {
 	p, err := json.Marshal(response)
 	if err != nil {
 		log.Println("invalid expression:", err)
-		return
+		return 0
 	}
 
 	client := http.Client{}
@@ -93,5 +93,8 @@ func processTask(expression *globals.PrimeEvaluation, a *types.Agent) {
 		log.Println("can't send request to orchestrator")
 	} else {
 		log.Printf("evaluated expression was successfully send  - %v | result - %f", expression, result)
+		return result
 	}
+	return result
+
 }
