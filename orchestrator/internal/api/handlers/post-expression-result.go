@@ -3,6 +3,7 @@ package handlers
 import (
 	"finalTaskLMS/globals"
 	"finalTaskLMS/orchestrator/types"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -14,13 +15,15 @@ func GetExpressionResult(o *types.Orchestrator) gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
 			return
 		}
-		for _, v := range o.Queue {
+		for i, v := range o.Queue {
 			if v.Id == result.Id && v.ParentID == result.ParentID {
-				v.Result = result.Result
-				v.OperationTime = result.OperationTime
+				o.Queue[i].Result = result.Result
+				o.Queue[i].OperationTime = 1
+				break
 			}
 		}
 
+		fmt.Println(o.Queue)
 		c.JSON(http.StatusOK, gin.H{})
 
 	}

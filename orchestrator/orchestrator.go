@@ -1,15 +1,17 @@
 package orchestrator
 
 import (
+	"context"
 	"finalTaskLMS/orchestrator/internal/api/handlers"
 	"finalTaskLMS/orchestrator/internal/models"
 	"finalTaskLMS/orchestrator/pkg/calc"
 	"finalTaskLMS/orchestrator/types"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"regexp"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 var once sync.Once
@@ -17,8 +19,9 @@ var once sync.Once
 const prefix string = "/api/v1"
 
 type Server struct {
-	R *gin.Engine
-	O *types.Orchestrator
+	R                 *gin.Engine
+	O                 *types.Orchestrator
+	expressionCounter uint64
 }
 
 func NewOrchestratorServer() *Server {
@@ -30,7 +33,6 @@ func NewOrchestratorServer() *Server {
 	})
 	return &s
 }
-
 func (s *Server) ConfigureRouter() {
 	r := gin.Default()
 
@@ -54,83 +56,90 @@ func (s *Server) RunServer(int) {
 }
 
 func (s *Server) CreateTasks() {
+	s.O.Mu.Lock()
+	defer s.O.Mu.Unlock()
 
-	go func() {
-		for i, v := range s.O.Expressions {
-			go func(i int, v models.Expressions) {
+	for i, v := range s.O.Expressions {
+		if v.Status != "pending" {
+			continue
+		}
+
+		s.O.Expressions[i].Status = "processing"
+
+		go func(id int, expr models.Expressions) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			resChan := make(chan float64, 1)
+			errChan := make(chan error, 1)
+
+			go func() {
+				calc.Calc(expr.Expression, resChan, errChan, id, s.O)
+			}()
+
+			select {
+			case res := <-resChan:
 				s.O.Mu.Lock()
-				s.O.Chans[i] = make(chan float64, 1)
-				s.O.Errchans[i] = make(chan error, 1)
-				s.O.Mu.Unlock()
-
-				if v.Status == "pending" {
-					calc.Calc(v.Expression, s.O.Chans[i], s.O.Errchans[i], i, s.O)
-
-					select {
-					case res := <-s.O.Chans[i]:
-						s.O.Mu.Lock()
-						for j, e := range s.O.Expressions {
-							if e.Id == i {
-								s.O.Expressions[j].Status = "successfully calculated"
-								s.O.Expressions[j].Result = res
-							}
-						}
-						s.O.Mu.Unlock()
-					case <-s.O.Errchans[i]:
-						if s.O.Chans != nil {
-							close(s.O.Chans[i])
-						}
-						s.O.Mu.Lock()
-						for j, e := range s.O.Expressions {
-							if e.Id == i {
-								s.O.Expressions[j].Status = "failed"
-								s.O.Expressions[j].Result = 0
-							}
-						}
-						s.O.Mu.Unlock()
+				for j, e := range s.O.Expressions {
+					if e.Id == id {
+						s.O.Expressions[j].Status = "successfully calculated"
+						s.O.Expressions[j].Result = res
+						break
 					}
 				}
-			}(i, v)
-		}
-	}()
+				s.O.Mu.Unlock()
+
+			case <-errChan:
+				s.O.Mu.Lock()
+				for j, e := range s.O.Expressions {
+					if e.Id == id {
+						s.O.Expressions[j].Status = "failed"
+						s.O.Expressions[j].Result = 0
+						break
+					}
+				}
+				s.O.Mu.Unlock()
+
+			case <-ctx.Done():
+				s.O.Mu.Lock()
+				for j, e := range s.O.Expressions {
+					if e.Id == id {
+						s.O.Expressions[j].Status = "timeout"
+						break
+					}
+				}
+				s.O.Mu.Unlock()
+			}
+		}(v.Id, v)
+	}
 }
 
 func AddExpressionHandler(s *Server) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.Method != "POST" {
-			c.JSON(405, gin.H{
-				"error": "this method not allowed",
-			})
-		}
-
 		var expression models.UserExpressions
 		if err := c.ShouldBindJSON(&expression); err != nil {
-			c.JSON(400, gin.H{
-				"error": "invalid JSON",
-			})
+			c.JSON(400, gin.H{"error": "invalid JSON"})
 			return
 		}
 
-		valid, err := regexp.MatchString("^[0-9)(*/+-]+$", expression.Expression)
-		if err != nil || !valid {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{
-				"error": "request contains forbidden symbols",
-			})
+		valid, _ := regexp.MatchString("^[0-9)(*/+-]+$", expression.Expression)
+		if !valid {
+			c.JSON(422, gin.H{"error": "invalid characters"})
 			return
 		}
 
 		s.O.Mu.Lock()
-		defer s.O.Mu.Unlock()
-		s.O.Expressions = append(s.O.Expressions, models.Expressions{
-			Id:         len(s.O.Expressions),
+		newID := atomic.AddUint64(&s.expressionCounter, 1)
+		newExpr := models.Expressions{
+			Id:         int(newID),
 			Status:     "pending",
 			Result:     0,
 			Expression: expression.Expression,
-		})
-		c.JSON(200, gin.H{
-			"id": s.O.Expressions[len(s.O.Expressions)-1].Id,
-		})
-		s.CreateTasks()
+		}
+		s.O.Expressions = append(s.O.Expressions, newExpr)
+		s.O.Mu.Unlock()
 
+		c.JSON(200, gin.H{"id": newID})
+		s.CreateTasks()
 	}
 }

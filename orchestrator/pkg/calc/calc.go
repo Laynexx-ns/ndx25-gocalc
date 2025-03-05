@@ -1,6 +1,7 @@
 package calc
 
 import (
+	"errors"
 	"finalTaskLMS/globals"
 	"finalTaskLMS/orchestrator/types"
 	"fmt"
@@ -21,72 +22,65 @@ var priority = map[rune]int{
 	'*': 2,
 }
 
-var o *types.Orchestrator
 var resultChans = make(map[int]chan float64)
-var parentId int
 
 func isOperator(ch rune) bool {
 	return ch == '+' || ch == '-' || ch == '*' || ch == '/'
 }
 
-func AddToQueue(a, b float64, operator string, c chan float64, id int, o *types.Orchestrator) {
-	fmt.Println("invoked add to queue")
-	o.Mu.Lock()
-	defer o.Mu.Unlock()
+func EvaluateSimpleExpression(a, b float64, operand string, parentId int, orch *types.Orchestrator) (float64, error) {
+	resChan := make(chan float64, 1)
+	errChan := make(chan error, 1)
+	defer close(resChan)
+	defer close(errChan)
 
-	if _, ok := o.Subs[parentId]; !ok {
-		o.Subs[parentId] = make(chan struct{}, 1)
-	}
+	orch.Mu.Lock()
+	id := len(orch.Queue)
 
-	resultChans[id] = make(chan float64, 1)
-
-	o.Queue = append(o.Queue, globals.PrimeEvaluation{
+	orch.Queue = append(orch.Queue, globals.PrimeEvaluation{
 		ParentID:      parentId,
 		Id:            id,
 		Arg1:          a,
 		Arg2:          b,
-		Operation:     operator,
+		Operation:     operand,
 		OperationTime: 0,
 		Result:        0,
 	})
-	fmt.Printf("Task added to queue: %+v\n", globals.PrimeEvaluation{
-		ParentID:  parentId,
-		Id:        id,
-		Arg1:      a,
-		Arg2:      b,
-		Operation: operator,
-	})
+	orch.Mu.Unlock()
 
-	go WatchQueue(parentId, c, id, o)
+	WaitOperationResult(resChan, errChan, id, parentId, orch)
+
+	select {
+	case res := <-resChan:
+		return res, nil
+	case err := <-errChan:
+		return 0, err
+	}
 }
+func WaitOperationResult(resChan chan float64, errChan chan error, id, parentId int, orch *types.Orchestrator) {
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 
-func WatchQueue(parentId int, c chan float64, id int, o *types.Orchestrator) {
-	sub := o.Subs[parentId]
 	for {
 		select {
-		case <-sub:
-			o.Mu.Lock()
-			for _, v := range o.Queue {
-				if v.ParentID == parentId && v.Id == id && v.OperationTime != 0 {
-					c <- v.Result
-					close(resultChans[id])
-					delete(resultChans, id)
-					o.Mu.Unlock()
-					return
-				}
-			}
-			o.Mu.Unlock()
-		case <-time.After(5 * time.Second):
-			o.Mu.Lock()
-			close(c)
-			delete(o.Subs, parentId)
-			o.Mu.Unlock()
-			fmt.Println("timeout reached (5s)")
+		case <-timeout:
+			fmt.Print("OPERATION TIMEOUT")
+			errChan <- errors.New("operation timeout")
 			return
+		case <-ticker.C:
+			orch.Mu.Lock()
+			if id < len(orch.Queue) && orch.Queue[id].OperationTime != 0 {
+				res := orch.Queue[id].Result
+				fmt.Print("OPERATION EVALUATED")
+				orch.Mu.Unlock()
+				resChan <- res
+				return
+			}
+			orch.Mu.Unlock()
 		}
 	}
 }
-
 func Parse(expression string) ([]string, error) {
 	var result []string
 	var operators []rune
@@ -131,58 +125,56 @@ func Parse(expression string) ([]string, error) {
 	return result, nil
 }
 
-func evaluate(parsedExpression []string) (float64, error) {
-	stack := []float64{}
-	//ch := make(chan float64)
-	id := 0
+func evaluate(parsedExpression []string, parentId int, orch *types.Orchestrator) (float64, error) {
+	var stack []float64
+	var evRes float64
 
 	for _, token := range parsedExpression {
 		if num, err := strconv.ParseFloat(token, 64); err == nil {
 			stack = append(stack, num)
 		} else if isOperator2(token) {
 			if len(stack) < 2 {
-				return 0, fmt.Errorf("недостаточно операндов для оператора %s", token)
+				return 0, fmt.Errorf("%s", token)
 			}
 			b := stack[len(stack)-1]
 			a := stack[len(stack)-2]
 			stack = stack[:len(stack)-2]
 
-			resultChan := make(chan float64, 1)
-			AddToQueue(a, b, token, resultChan, id, o)
-			id++
-
-			select {
-			case res := <-resultChan:
-				stack = append(stack, res)
-			case <-time.After(5 * time.Second):
-				return 0, fmt.Errorf("таймаут операции %s", token)
+			evRes, err = EvaluateSimpleExpression(a, b, token, parentId, orch)
+			if err != nil {
+				return 0, err
 			}
+			stack = append(stack, evRes)
 		} else {
-			return 0, fmt.Errorf("неверный токен: %s", token)
+			return 0, fmt.Errorf("invalid operation: %s", token)
 		}
 	}
 
 	if len(stack) != 1 {
-		return 0, fmt.Errorf("неверное выражение")
+		return 0, fmt.Errorf("invalid operation")
 	}
 
 	return stack[0], nil
 }
 
 func isOperator2(token string) bool {
-	return token == "+" || token == "-" || token == "*" || token == "/"
+	switch token {
+	case "+", "-", "*", "/":
+		return true
+	default:
+		return false
+	}
 }
 
 func Calc(expression string, resChan chan float64, errChan chan error, PID int, orch *types.Orchestrator) {
 	fmt.Println("calculation invoked")
-	o = orch
-	parentId = PID
+
 	a, err := Parse(expression)
 	if err != nil {
 		errChan <- err
 
 	}
-	res, err := evaluate(a)
+	res, err := evaluate(a, PID, orch)
 	if err != nil {
 		errChan <- err
 

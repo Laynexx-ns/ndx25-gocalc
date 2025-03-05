@@ -10,12 +10,12 @@ func GetTasks(o *types.Orchestrator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var notEvaluatedExpression globals.PrimeEvaluation
 		if len(o.Queue) > 0 {
-			notEvaluatedExpression = o.Queue[0]
-			o.Queue = o.Queue[1:]
-			o.SentEvaluations = append(o.SentEvaluations, notEvaluatedExpression)
+			for _, v := range o.Queue {
+				if v.OperationTime == 0 {
+					notEvaluatedExpression = v
+				}
+			}
 		}
-
-		o.SentEvaluations = append(o.SentEvaluations, notEvaluatedExpression)
 		c.JSON(200, notEvaluatedExpression)
 	}
 }
