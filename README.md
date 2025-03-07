@@ -42,13 +42,13 @@ ___
 Запуск оркестратора
 
 ```shell
-go run cmd/orhestrator/main.go
+go run .\cmd\orchestrator\main.go
 ```
 
 Запуск агента
 
 ```shell
-go run cmd/agent/main.go
+go run .\cmd\agent\main.go
 ```
 
 
