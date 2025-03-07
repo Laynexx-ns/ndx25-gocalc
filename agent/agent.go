@@ -4,6 +4,7 @@ import (
 	"finalTaskLMS/agent/internal/handlers"
 	"finalTaskLMS/agent/types"
 	"fmt"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
 	"os"
@@ -45,6 +46,13 @@ func (s *Server) ConfigureRouter() {
 			"hello": "world",
 		})
 	})
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"*"},
+		AllowHeaders: []string{"*"},
+	}))
+
 	s.R = r
 }
 

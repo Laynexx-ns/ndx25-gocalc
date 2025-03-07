@@ -12,6 +12,7 @@
 
 Работающая версия появилась после коммита "ОНО РАБОТАЕТ"
 
+___
 
 ## Фронтенд
 
@@ -20,7 +21,21 @@
 https://github.com/Laynexx-ns/yalms-frontend
 
 
-## Запуск
+
+___
+## Запуск и установка
+
+Клон репы:
+
+```shell
+#ssh
+git@github.com:Laynexx-ns/finalTaskLMS.git
+
+#https
+https://github.com/Laynexx-ns/finalTaskLMS.git
+```
+
+___
 
 Запускается в двух разных файлах - `cmd/agent/main.go` и  `cmd/orchestrator/main.go`
 
@@ -30,17 +45,23 @@ https://github.com/Laynexx-ns/yalms-frontend
 go run cmd/orhestrator/main.go
 ```
 
+Запуск агента
+
 ```shell
 go run cmd/agent/main.go
 ```
 
+
+## Устройство
+
+![img_5.png](img_5.png)
 
 
 К сожалению нет времени на норм ридми( Мб чуть позже выложу фронт.
 
 Тесты есть в `orchestrator/orchestrator_test.go` и `agent/internal/handlers/evaluate-handler_test.go`
 
-
+___
 ## Фотки запросов
 
 ![img.png](img.png)
@@ -49,8 +70,10 @@ go run cmd/agent/main.go
 ![img_4.png](img_4.png)
 
 Это небольшой костыль чтобы агент не плакал и чтобы миру было веселее, но таски можно подгружать)
+
 ![img_3.png](img_3.png)
 
+___
 ## Еще печальки
 
 В прошлый раз я получил 100 баллов и потратил огромное количество времени и всем, у кого проверял, делал СУПЕР подробное ишью. Надеюсь это потраченное время окупится.

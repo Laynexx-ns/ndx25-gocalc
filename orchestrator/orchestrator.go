@@ -7,6 +7,7 @@ import (
 	"finalTaskLMS/orchestrator/pkg/calc"
 	"finalTaskLMS/orchestrator/types"
 	"fmt"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"regexp"
 	"sync"
@@ -35,6 +36,12 @@ func NewOrchestratorServer() *Server {
 }
 func (s *Server) ConfigureRouter() {
 	r := gin.Default()
+
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"*"},
+		AllowHeaders: []string{"*"},
+	}))
 
 	r.POST(prefix+"/calculate", AddExpressionHandler(s))
 	r.GET(prefix+"/expressions", handlers.GetExpressions(s.O))
