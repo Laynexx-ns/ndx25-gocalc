@@ -10,6 +10,7 @@ type Config struct {
 	AgentConf        AgentConf          `yaml:"AGENT"`
 	OrchestratorConf OrchestratorConfig `yaml:"ORCHESTRATOR"`
 	PgConfig         postgres.Config    `yaml:"POSTGRES"`
+	JwtSecretKey     string             `yaml:"JWT_SECRET_KEY"`
 }
 
 type AgentConf struct {
