@@ -10,9 +10,3 @@ type Expressions struct {
 type UserExpressions struct {
 	Expression string
 }
-
-type ExpressionsResponse struct {
-	Id     int
-	Status string
-	Result float64
-}

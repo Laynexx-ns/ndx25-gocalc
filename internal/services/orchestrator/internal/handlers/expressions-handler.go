@@ -1,45 +1,59 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
-	"github.com/labstack/echo/v4"
+	"github.com/google/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"ndx/internal/models"
 	"ndx/internal/services/orchestrator/internal"
+	"ndx/internal/services/orchestrator/internal/repository"
+
 	"ndx/internal/services/orchestrator/internal/types"
+	pb "ndx/pkg/api/orchestrator-service"
 	"regexp"
+	"strings"
 	"sync/atomic"
 
-	"fmt"
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"strconv"
 )
 
 type ExpressionsHandler struct {
 	db   *sql.DB
 	orch *types.Orchestrator
+	repo *repository.ExpressionRepository
 }
 
 func NewExpressionsHandler(db *sql.DB, orch *types.Orchestrator) *ExpressionsHandler {
 	return &ExpressionsHandler{
 		db:   db,
 		orch: orch,
+		repo: repository.NewExpressionRepository(db),
 	}
 }
 
-func (eh *ExpressionsHandler) GetExpressions(c echo.Context) error {
-	var response []models.ExpressionsResponse
-
-	eh.orch.Mu.Lock()
-	defer eh.orch.Mu.Unlock()
-	for _, v := range eh.orch.Expressions {
-		response = append(response, models.ExpressionsResponse{
-			Id:     v.Id,
-			Status: v.Status,
-			Result: v.Result,
-		})
+func (eh *ExpressionsHandler) GetExpressions(ctx context.Context, req *pb.GetExpressionsRequest) (*pb.GetExpressionsResponse, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "unauthenticated")
 	}
-	return c.JSON(200, response)
+
+	headers := md["authorization"]
+	if len(headers) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "unauthenticated")
+	}
+
+	parts := strings.SplitN(headers[0], " ", 2)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return nil, status.Error(codes.Unauthenticated, "unauthenticated")
+	}
+
+	//TODO: add authentication checking logic to get userId
+
+	_, _ = eh.repo.GetExpressions(uuid.New())
 
 }
 
@@ -62,27 +76,6 @@ func (eh *ExpressionsHandler) GetExpressionsById(o *types.Orchestrator) gin.Hand
 		c.JSON(404, gin.H{
 			"response": "Not found",
 		})
-
-	}
-}
-
-func (eh *ExpressionsHandler) GetExpressionResult(o *types.Orchestrator) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var result models.PrimeEvaluation
-		if err := c.ShouldBindJSON(&result); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON"})
-			return
-		}
-		for i, v := range o.Queue {
-			if v.Id == result.Id && v.ParentID == result.ParentID {
-				o.Queue[i].Result = result.Result
-				o.Queue[i].OperationTime = 1
-				break
-			}
-		}
-
-		fmt.Println(o.Queue)
-		c.JSON(http.StatusOK, gin.H{})
 
 	}
 }

@@ -2,8 +2,9 @@ package calc
 
 import (
 	"errors"
-	"finalTaskLMS/internal/models"
-	"finalTaskLMS/internal/services/orchestrator/types"
+	"ndx/internal/models"
+	"ndx/internal/services/orchestrator/internal/types"
+
 	"fmt"
 	"strconv"
 	"strings"

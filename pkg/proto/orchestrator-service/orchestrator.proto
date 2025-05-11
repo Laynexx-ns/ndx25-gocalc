@@ -8,7 +8,7 @@ package orchestrator_service;
 service OrchestratorService {
   rpc GetExpressions (GetExpressionsRequest) returns (GetExpressionsResponse) {
       option (google.api.http) = {
-        get: "/api/v1/expressions"
+        get: "/api/v1/expressions/{user_id}"
       };
   }
   rpc PostExpression (PostExpressionRequest) returns (PostExpressionResponse) {
@@ -25,7 +25,9 @@ service OrchestratorService {
   rpc GetTasks (GetTasksRequest) returns (GetTasksResponse);
 }
 
-message GetExpressionsRequest {}
+message GetExpressionsRequest {
+  string user_id = 1;
+}
 
 message  GetExpressionsResponse {
   repeated ExpressionsResponse response = 1;
@@ -33,26 +35,27 @@ message  GetExpressionsResponse {
 }
 
 message ExpressionsResponse {
-  int64 id = 1;
+  int32 id = 1;
   string status = 2;
   float result = 3;
-}
+  string expression = 4;
 
+}
 
 message PostExpressionRequest {
   string expression = 1;
 }
 
 message PostExpressionResponse {
-  int64 id = 1;
+  int32 id = 1;
 }
 
 message GetExpressionByIdRequest {
-  int64 id = 1;
+  int32 id = 1;
 }
 
 message GetExpressionByIdResponse {
-  int64 id = 1;
+  int32 id = 1;
   string status = 2;
   float result = 3;
 }
@@ -61,13 +64,15 @@ message GetExpressionByIdResponse {
 message GetTasksRequest {}
 
 message GetTasksResponse{
-  int64 parentID = 1;
+  int32 parentID = 1;
   int64 id = 2;
   float arg1 = 3;
   float arg2 = 4;
   string operation = 5;
-  int64 operation_time = 6;
+  int32 operation_time = 6;
   float result = 7;
   bool error = 8;
+  string completed_at = 9;
+  string user_id = 10;
 }
 

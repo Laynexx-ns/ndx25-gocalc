@@ -15,6 +15,8 @@ func main() {
 	logger.Init()
 
 	cfg := config.NewConfig()
+	logger.L().Logf(0, "config: %v", cfg)
+
 	pgConn, err := postgres.New(cfg.PgConfig)
 	if err != nil {
 		logger.L().Fatalf("can't connect to postgres | err: %v", err)
