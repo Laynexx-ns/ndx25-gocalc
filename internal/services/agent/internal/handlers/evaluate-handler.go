@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"math"
 	"ndx/internal/models"
-	"ndx/internal/services/agent/internal"
+	"ndx/internal/services/agent/internal/types"
+
 	"ndx/pkg/config"
 
 	"log"
@@ -18,7 +19,7 @@ import (
 type EvaluateHandler struct {
 	db     *sql.DB
 	config config.Config
-	Agent  *internal.Agent
+	Agent  *types.Agent
 }
 
 func NewEvaluateHandler(db *sql.DB, c config.Config) *EvaluateHandler {

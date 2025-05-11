@@ -1,20 +1,35 @@
-package agent
+package main
 
 import (
-	"github.com/labstack/echo/v4"
-	"ndx/internal/services/agent/internal/config"
+	"fmt"
+	"google.golang.org/grpc"
+	"ndx/internal/services/agent/internal"
+	agentservice "ndx/pkg/api/agent-service"
 	"ndx/pkg/config"
-	"sync"
+	postgres "ndx/pkg/db/postrgres"
+	"ndx/pkg/logger"
+	"net"
 )
 
-var once sync.Once
-
-type Server struct {
-	Config config.Config
-	Echo   *echo.Echo
-	Agent  *config.Agent
-}
-
 func main() {
+	logger.Init()
 
+	cfg := config.NewConfig()
+	pgConn, err := postgres.New(cfg.PgConfig)
+	if err != nil {
+		logger.L().Fatalf("can't connect to database | err: %v", err)
+	}
+	srv := internal.NewAgentServer(cfg, pgConn)
+
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", cfg.AgentConf.Port))
+	if err != nil {
+		logger.L().Fatalf("can't start listen agent service port | err: %v", err)
+	}
+
+	server := grpc.NewServer()
+	agentservice.RegisterAgentServiceServer(server, srv)
+
+	if err = server.Serve(lis); err != nil {
+		logger.L().Fatalf("can't start agent server | err: %v")
+	}
 }

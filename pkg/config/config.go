@@ -1,7 +1,9 @@
 package config
 
 import (
+	"github.com/ilyakaznacheev/cleanenv"
 	postgres "ndx/pkg/db/postrgres"
+	"ndx/pkg/logger"
 )
 
 type Config struct {
@@ -26,4 +28,12 @@ type AgentTimeConf struct {
 type OrchestratorConfig struct {
 	Port int    `yaml:"ORCHESTRATOR_PORT" yaml-default:"8081"`
 	Host string `yaml:"ORCHESTRATOR_HOST" yaml-default:"localhost"`
+}
+
+func NewConfig() Config {
+	var c Config
+	if err := cleanenv.ReadConfig("config/config.yml", &c); err != nil {
+		logger.L().Fatalf("can't load env vars | err: %v", err)
+	}
+	return c
 }
