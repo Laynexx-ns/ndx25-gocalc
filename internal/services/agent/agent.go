@@ -1,11 +1,11 @@
 package agent
 
 import (
-	"finalTaskLMS/agent/internal/handlers"
-	"finalTaskLMS/agent/types"
+	"finalTaskLMS/internal/services/agent/internal/handlers"
+	"finalTaskLMS/internal/services/agent/types"
 	"fmt"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"log"
 	"os"
 	"strconv"
@@ -15,7 +15,7 @@ import (
 var once sync.Once
 
 type Server struct {
-	R *gin.Engine
+	R *echo.Echo
 	A *types.Agent
 }
 
@@ -39,28 +39,21 @@ func (s *Server) InitializeAgent() {
 }
 
 func (s *Server) ConfigureRouter() {
-	r := gin.Default()
-
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"hello": "world",
-		})
+	e := echo.New()
+	e.GET("/ping", func(c echo.Context) error {
+		return c.String(200, "( ´ ꒳ ` )")
 	})
 
-	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{"*"},
-		AllowHeaders: []string{"*"},
-	}))
+	e.Use(middleware.CORS())
 
-	s.R = r
+	s.R = e
 }
 
 func (s *Server) RunServer() {
 	go handlers.CycleTask(s.A)
 
-	if err := s.R.Run(":8081"); err != nil {
-		log.Fatal("qwekrqwkerkopqwkeopr[k")
+	if err := s.R.Start(":8081"); err != nil {
+		log.Fatal("can[k")
 	}
 
 }

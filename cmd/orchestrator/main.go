@@ -1,6 +1,8 @@
 package main
 
-import "finalTaskLMS/orchestrator"
+import (
+	"finalTaskLMS/internal/services/orchestrator"
+)
 
 func main() {
 	os := orchestrator.NewOrchestratorServer()

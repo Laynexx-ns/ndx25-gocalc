@@ -3,8 +3,8 @@ package orchestrator
 import (
 	"bytes"
 	"encoding/json"
-	"finalTaskLMS/orchestrator/internal/models"
-	"finalTaskLMS/orchestrator/types"
+	"finalTaskLMS/internal/models"
+	"finalTaskLMS/internal/services/orchestrator/types"
 	"net/http"
 	"net/http/httptest"
 	"sync"

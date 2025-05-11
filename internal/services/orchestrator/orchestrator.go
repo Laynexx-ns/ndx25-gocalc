@@ -2,10 +2,10 @@ package orchestrator
 
 import (
 	"context"
-	"finalTaskLMS/orchestrator/internal/api/handlers"
-	"finalTaskLMS/orchestrator/internal/models"
-	"finalTaskLMS/orchestrator/pkg/calc"
-	"finalTaskLMS/orchestrator/types"
+	"finalTaskLMS/internal/models"
+	"finalTaskLMS/internal/services/orchestrator/internal/api/handlers"
+	"finalTaskLMS/internal/services/orchestrator/pkg/calc"
+	"finalTaskLMS/internal/services/orchestrator/types"
 	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"

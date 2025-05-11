@@ -3,8 +3,8 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
-	"finalTaskLMS/agent/types"
-	"finalTaskLMS/globals"
+	"finalTaskLMS/internal/models"
+	"finalTaskLMS/internal/services/agent/types"
 	"fmt"
 	"log"
 	"net/http"
@@ -31,24 +31,24 @@ func CycleTask(a *types.Agent) {
 	}
 }
 
-func getTask() (globals.PrimeEvaluation, error) {
+func getTask() (models.PrimeEvaluation, error) {
 	client := http.Client{}
 	resp, err := client.Get("http://localhost:8080/internal/task")
 	if err != nil {
-		return globals.PrimeEvaluation{}, err
+		return models.PrimeEvaluation{}, err
 	}
 	defer resp.Body.Close()
 
-	var expression globals.PrimeEvaluation
+	var expression models.PrimeEvaluation
 	err = json.NewDecoder(resp.Body).Decode(&expression)
 	if err != nil {
-		return globals.PrimeEvaluation{}, err
+		return models.PrimeEvaluation{}, err
 	}
 
 	return expression, nil
 }
 
-func processTask(expression *globals.PrimeEvaluation, a *types.Agent) float64 {
+func processTask(expression *models.PrimeEvaluation, a *types.Agent) float64 {
 
 	result := 0.0
 	switch expression.Operation {
@@ -70,7 +70,7 @@ func processTask(expression *globals.PrimeEvaluation, a *types.Agent) float64 {
 		return 0
 	}
 
-	response := globals.PrimeEvaluation{
+	response := models.PrimeEvaluation{
 		ParentID:      expression.ParentID,
 		Id:            expression.Id,
 		Arg1:          expression.Arg1,

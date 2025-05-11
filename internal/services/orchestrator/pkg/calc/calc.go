@@ -2,8 +2,8 @@ package calc
 
 import (
 	"errors"
-	"finalTaskLMS/globals"
-	"finalTaskLMS/orchestrator/types"
+	"finalTaskLMS/internal/models"
+	"finalTaskLMS/internal/services/orchestrator/types"
 	"fmt"
 	"strconv"
 	"strings"
@@ -37,7 +37,7 @@ func EvaluateSimpleExpression(a, b float64, operand string, parentId int, orch *
 	orch.Mu.Lock()
 	id := len(orch.Queue)
 
-	orch.Queue = append(orch.Queue, globals.PrimeEvaluation{
+	orch.Queue = append(orch.Queue, models.PrimeEvaluation{
 		ParentID:      parentId,
 		Id:            id,
 		Arg1:          a,
