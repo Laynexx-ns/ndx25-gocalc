@@ -1,7 +1,5 @@
 package models
 
-// ExerciseProcessingStatus / - enum для статусов обработки упражнений
-
 type Expressions struct {
 	Id         int
 	Status     string

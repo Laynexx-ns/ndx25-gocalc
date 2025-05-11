@@ -1,8 +1,7 @@
 package types
 
 import (
-	"finalTaskLMS/internal/models"
-
+	"ndx/internal/models"
 	"sync"
 )
 

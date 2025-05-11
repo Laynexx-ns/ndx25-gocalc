@@ -1,0 +1,77 @@
+services:
+  postgres:
+    container_name: ndx_postgres-container
+    image: postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: formulink
+    volumes:
+      - ./storage/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - main-network
+    restart: unless-stopped
+    command: [ "postgres", "-c", "listen_addresses=*" ]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U root -d postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  orchestrator-server:
+    container_name: ndx_orchestrator-container
+    ports:
+      - "8081:8081"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./db/migrations:/app/db/migrations
+      - ./config/config.yml:/app/config/config.yml
+
+    networks:
+      - main-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+  agent-server:
+    container_name: ndx_agent-container
+    ports:
+      - "8082:8082"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./db/migrations:/app/db/migrations
+      - ./config/config.yml:/app/config/config.yml
+
+    networks:
+      - main-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+
+
+networks:
+  main-network:
+    driver: bridge
+

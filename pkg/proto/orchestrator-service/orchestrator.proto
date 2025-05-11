@@ -1,0 +1,73 @@
+syntax="proto3";
+
+import "google/api/annotations.proto";
+option go_package="pkg/api/orchestrator-service";
+
+package orchestrator_service;
+
+service OrchestratorService {
+  rpc GetExpressions (GetExpressionsRequest) returns (GetExpressionsResponse) {
+      option (google.api.http) = {
+        get: "/api/v1/expressions"
+      };
+  }
+  rpc PostExpression (PostExpressionRequest) returns (PostExpressionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/expressions"
+      body: "*"
+    };
+  }
+  rpc GetExpressionById (GetExpressionByIdRequest) returns (GetExpressionByIdResponse){
+    option (google.api.http) = {
+      get: "/api/v1/expressions/{id}"
+    };
+  }
+  rpc GetTasks (GetTasksRequest) returns (GetTasksResponse);
+}
+
+message GetExpressionsRequest {}
+
+message  GetExpressionsResponse {
+  repeated ExpressionsResponse response = 1;
+
+}
+
+message ExpressionsResponse {
+  int64 id = 1;
+  string status = 2;
+  float result = 3;
+}
+
+
+message PostExpressionRequest {
+  string expression = 1;
+}
+
+message PostExpressionResponse {
+  int64 id = 1;
+}
+
+message GetExpressionByIdRequest {
+  int64 id = 1;
+}
+
+message GetExpressionByIdResponse {
+  int64 id = 1;
+  string status = 2;
+  float result = 3;
+}
+
+
+message GetTasksRequest {}
+
+message GetTasksResponse{
+  int64 parentID = 1;
+  int64 id = 2;
+  float arg1 = 3;
+  float arg2 = 4;
+  string operation = 5;
+  int64 operation_time = 6;
+  float result = 7;
+  bool error = 8;
+}
+

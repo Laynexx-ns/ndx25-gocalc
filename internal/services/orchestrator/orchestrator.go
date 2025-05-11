@@ -2,13 +2,15 @@ package orchestrator
 
 import (
 	"context"
-	"finalTaskLMS/internal/models"
-	"finalTaskLMS/internal/services/orchestrator/internal/api/handlers"
-	"finalTaskLMS/internal/services/orchestrator/pkg/calc"
-	"finalTaskLMS/internal/services/orchestrator/types"
+	"ndx/internal/models"
+	"ndx/internal/services/orchestrator/internal/api/handlers"
+	"ndx/internal/services/orchestrator/pkg/calc"
+	"ndx/internal/services/orchestrator/types"
+
 	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -20,16 +22,17 @@ var once sync.Once
 const prefix string = "/api/v1"
 
 type Server struct {
-	R                 *gin.Engine
-	O                 *types.Orchestrator
+	Server            *echo.Echo
+	Orchestrator      *types.Orchestrator
 	expressionCounter uint64
 }
 
 func NewOrchestratorServer() *Server {
 	var s Server
+
 	once.Do(func() {
 		s = Server{
-			O: types.NewOrchestrator(),
+			Orchestrator: types.NewOrchestrator(),
 		}
 	})
 	return &s
@@ -47,10 +50,10 @@ func (s *Server) ConfigureRouter() {
 	r.GET(prefix+"/expressions", handlers.GetExpressions(s.O))
 	r.GET(prefix+"/expressions/:id", handlers.GetExpressionsById(s.O))
 	r.GET(prefix+"/queue", func(c *gin.Context) {
-		c.JSON(200, s.O.Queue)
+		c.JSON(200, s.Orchestrator.Queue)
 	})
-	r.GET("internal/task", handlers.GetTasks(s.O))
-	r.POST("internal/task", handlers.GetExpressionResult(s.O))
+	r.GET("internal/task", handlers.GetTasks(s.Orchestrator))
+	r.POST("internal/task", handlers.SetExpressionResult(s.Orchestrator))
 
 	s.R = r
 }

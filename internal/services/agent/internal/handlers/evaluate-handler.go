@@ -2,38 +2,54 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
-	"finalTaskLMS/internal/models"
-	"finalTaskLMS/internal/services/agent/types"
 	"fmt"
+	"math"
+	"ndx/internal/models"
+	"ndx/internal/services/agent/internal"
+	"ndx/pkg/config"
+
 	"log"
 	"net/http"
 	"time"
 )
 
-func CycleTask(a *types.Agent) {
+type EvaluateHandler struct {
+	db     *sql.DB
+	config config.Config
+	Agent  *internal.Agent
+}
+
+func NewEvaluateHandler(db *sql.DB, c config.Config) *EvaluateHandler {
+	return &EvaluateHandler{
+		db:     db,
+		config: c,
+	}
+}
+
+func (eh *EvaluateHandler) CycleTask() {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
-	fmt.Print("qwe")
 
 	for {
 		select {
 		case <-ticker.C:
-			task, err := getTask()
-			a.Tasks = append(a.Tasks, task)
+			task, err := eh.getTask()
+			eh.Agent.Tasks = append(eh.Agent.Tasks, task)
 			if err != nil {
 				log.Println("Error getting task:", err)
 				continue
 			}
-			processTask(&task, a)
+			eh.processTask(&task)
 
 		}
 	}
 }
 
-func getTask() (models.PrimeEvaluation, error) {
+func (eh *EvaluateHandler) getTask() (models.PrimeEvaluation, error) {
 	client := http.Client{}
-	resp, err := client.Get("http://localhost:8080/internal/task")
+	resp, err := client.Get(fmt.Sprintf("http://%s:%d/internal/task", eh.config.OrchestratorConf.Host, eh.config.OrchestratorConf.Port))
 	if err != nil {
 		return models.PrimeEvaluation{}, err
 	}
@@ -48,25 +64,36 @@ func getTask() (models.PrimeEvaluation, error) {
 	return expression, nil
 }
 
-func processTask(expression *models.PrimeEvaluation, a *types.Agent) float64 {
+func (eh *EvaluateHandler) processTask(expression *models.PrimeEvaluation) float64 {
 
 	result := 0.0
+	operationTime := 0
+	hasErr := false
 	switch expression.Operation {
+	case "^":
+		result = math.Pow(expression.Arg1, expression.Arg2)
+		operationTime = eh.config.AgentConf.TimeConf.MultiplicationTime
 	case "+":
 		result = expression.Arg1 + expression.Arg2
+		operationTime = eh.config.AgentConf.TimeConf.AdditionTime
 	case "-":
 		result = expression.Arg1 - expression.Arg2
+		operationTime = eh.config.AgentConf.TimeConf.SubtractionTime
 	case "*":
 		result = expression.Arg1 * expression.Arg2
+		operationTime = eh.config.AgentConf.TimeConf.MultiplicationTime
 	case "/":
 		if expression.Arg2 != 0 {
+			operationTime = eh.config.AgentConf.TimeConf.DivisionTime
 			result = expression.Arg1 / expression.Arg2
 		} else {
 			log.Println("Division by zero")
+			hasErr = true
 			return 0
 		}
 	default:
 		log.Println("Unknown operation", expression)
+		hasErr = true
 		return 0
 	}
 
@@ -77,7 +104,8 @@ func processTask(expression *models.PrimeEvaluation, a *types.Agent) float64 {
 		Arg2:          expression.Arg2,
 		Operation:     expression.Operation,
 		Result:        result,
-		OperationTime: 1,
+		OperationTime: operationTime,
+		Error:         hasErr,
 	}
 
 	p, err := json.Marshal(response)
@@ -87,7 +115,7 @@ func processTask(expression *models.PrimeEvaluation, a *types.Agent) float64 {
 	}
 
 	client := http.Client{}
-	_, err = client.Post("http://localhost:8080/internal/task",
+	_, err = client.Post(fmt.Sprintf("http://%s:%d/internal/task", eh.config.OrchestratorConf.Host, eh.config.OrchestratorConf.Port), //localhost:/internal/task",
 		"application/json", bytes.NewReader(p))
 	if err != nil {
 		log.Println("can't send request to orchestrator")

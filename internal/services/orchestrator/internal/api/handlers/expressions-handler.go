@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"database/sql"
-	"finalTaskLMS/internal/models"
-	"finalTaskLMS/internal/services/orchestrator/types"
+	"github.com/labstack/echo/v4"
+	"ndx/internal/models"
+	"ndx/internal/services/orchestrator/types"
+
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -11,29 +13,27 @@ import (
 )
 
 type ExpressionsHandler struct {
-	db *sql.DB
+	db   *sql.DB
+	orch *types.Orchestrator
 }
 
-func GetExpressions(o *types.Orchestrator) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		var response []models.ExpressionsResponse
+func (eh *ExpressionsHandler) GetExpressions(c echo.Context) error {
+	var response []models.ExpressionsResponse
 
-		o.Mu.Lock()
-		defer o.Mu.Unlock()
-		for _, v := range o.Expressions {
-			response = append(response, models.ExpressionsResponse{
-				Id:     v.Id,
-				Status: v.Status,
-				Result: v.Result,
-			})
-		}
-
-		c.JSON(200, response)
+	eh.orch.Mu.Lock()
+	defer eh.orch.Mu.Unlock()
+	for _, v := range eh.orch.Expressions {
+		response = append(response, models.ExpressionsResponse{
+			Id:     v.Id,
+			Status: v.Status,
+			Result: v.Result,
+		})
 	}
+	return c.JSON(200, response)
 
 }
 
-func GetExpressionsById(o *types.Orchestrator) gin.HandlerFunc {
+func (eh *ExpressionsHandler) GetExpressionsById(o *types.Orchestrator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		parsedParamId, _ := strconv.Atoi(c.Param("id"))
 
@@ -56,7 +56,7 @@ func GetExpressionsById(o *types.Orchestrator) gin.HandlerFunc {
 	}
 }
 
-func GetExpressionResult(o *types.Orchestrator) gin.HandlerFunc {
+func (eh *ExpressionsHandler) GetExpressionResult(o *types.Orchestrator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var result models.PrimeEvaluation
 		if err := c.ShouldBindJSON(&result); err != nil {
@@ -77,7 +77,7 @@ func GetExpressionResult(o *types.Orchestrator) gin.HandlerFunc {
 	}
 }
 
-func GetTasks(o *types.Orchestrator) gin.HandlerFunc {
+func (eh *ExpressionsHandler) GetTasks(o *types.Orchestrator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var notEvaluatedExpression models.PrimeEvaluation
 		if len(o.Queue) > 0 {

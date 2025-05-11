@@ -1,0 +1,12 @@
+syntax="proto3";
+
+import "google/api/annotations.proto";
+option go_package="pkg/api/agent-service";
+
+package agent_service;
+
+service AgentService {
+
+}
+
+

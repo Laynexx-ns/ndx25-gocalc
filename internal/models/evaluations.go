@@ -14,4 +14,5 @@ type PrimeEvaluation struct {
 	Operation     string  `json:"operation"`
 	OperationTime int     `json:"operation_time"`
 	Result        float64 `json:"result"`
+	Error         bool    `json:"error"`
 }
