@@ -81,7 +81,7 @@ func (h *ExpressionsHandler) PostExpressionResult(ctx context.Context,
 	query := `UPDATE prime_evaluations 
 			set result = $2, operation_time = $3, completed_at = $4
 			WHERE id = $1`
-	if _, err := h.db.Exec(query, req.Id, req.Result, req.OperationTime, time.Now().String()); err != nil {
+	if _, err := h.db.Exec(query, req.Id, req.Result, req.OperationTime, time.Now()); err != nil {
 		logger.L().Logf(0, "can't update evaluation | err: %v", err)
 		return nil, err
 	}

@@ -3,8 +3,10 @@ package calc
 import (
 	"errors"
 	"fmt"
+	"log"
 	"ndx/internal/models"
 	"ndx/internal/services/orchestrator/internal/repo"
+	"ndx/pkg/logger"
 	"strconv"
 	"strings"
 	"time"
@@ -30,19 +32,21 @@ func isOperator(ch rune) bool {
 
 func EvaluateSimpleExpression(a, b float64, operand string, parentId int, repo *repo.TasksRepository) (float64, error) {
 
-	err := repo.SavePrimeEvaluation(models.PrimeEvaluation{
+	id, err := repo.SavePrimeEvaluation(models.PrimeEvaluation{
 		ParentID:      parentId,
 		Arg1:          a,
 		Arg2:          b,
 		Operation:     operand,
 		OperationTime: 0,
 	})
-	res, err := WaitForEvaluationResult(repo, parentId, 5*time.Second)
+	log.Println(id)
+	res, err := WaitForEvaluationResult(repo, id, 5*time.Second)
 
 	if err != nil {
 		return 0, err
 	}
 
+	log.Println("res: ", res)
 	return res, nil
 }
 
@@ -54,13 +58,14 @@ func WaitForEvaluationResult(repo *repo.TasksRepository, Id int, timeout time.Du
 	for {
 		select {
 		case <-ticker.C:
-			s, err := repo.GetPrimeEvaluationByParentID(Id)
-			step := s[0]
+			s, err := repo.GetPrimeEvaluationByID(Id)
+			logger.L().Logf(0, "prime eval: %v", s)
+
 			if err != nil {
 				return 0, err
 			}
-			if step.OperationTime != 0 {
-				return step.Result, nil
+			if s.OperationTime != 0 {
+				return s.Result, nil
 			}
 			if time.Since(start) > timeout {
 				return 0, errors.New("evaluation timeout")

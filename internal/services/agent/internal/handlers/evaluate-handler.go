@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"math"
 	"ndx/internal/models"
 	"ndx/internal/services/agent/internal/types"
@@ -16,6 +17,8 @@ import (
 	"log"
 	"time"
 )
+
+const agentContextKey = "isAgentRequest"
 
 type EvaluateHandler struct {
 	db     *sql.DB
@@ -50,20 +53,21 @@ func (eh *EvaluateHandler) CycleTask() {
 	for {
 		select {
 		case <-ticker.C:
-			task, err := eh.getTask()
+			ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-agent-request", "true"))
+			task, err := eh.getTask(ctx)
 			eh.Agent.Tasks = append(eh.Agent.Tasks, task)
 			if err != nil {
 				log.Println("Error getting task:", err)
 				continue
 			}
-			eh.processTask(&task)
+			eh.processTask(ctx, &task)
 
 		}
 	}
 }
-func (eh *EvaluateHandler) getTask() (models.PrimeEvaluation, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+func (eh *EvaluateHandler) getTask(ctx context.Context) (models.PrimeEvaluation, error) {
+	//ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx = context.WithValue(ctx, agentContextKey, true)
 
 	resp, err := eh.client.GetTasks(ctx, &pb.GetTasksRequest{})
 	if err != nil {
@@ -79,7 +83,9 @@ func (eh *EvaluateHandler) getTask() (models.PrimeEvaluation, error) {
 	}, nil
 }
 
-func (eh *EvaluateHandler) processTask(expression *models.PrimeEvaluation) float64 {
+func (eh *EvaluateHandler) processTask(ctx context.Context, expression *models.PrimeEvaluation) float64 {
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("x-agent-request", "true"))
+
 	result := 0.0
 	operationTime := 0
 	hasErr := false
@@ -109,9 +115,6 @@ func (eh *EvaluateHandler) processTask(expression *models.PrimeEvaluation) float
 		log.Println("Unknown operation", expression)
 		hasErr = true
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
 
 	_, err := eh.client.PostExpressionResult(ctx, &pb.PostExpressionResultRequest{
 		ParentID:      int32(expression.ParentID),

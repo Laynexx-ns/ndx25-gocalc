@@ -20,13 +20,12 @@ func AuthInterceptor() grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (any, error) {
-		isAgent, ok := ctx.Value(agentContextKey).(bool)
-		if isAgent && ok {
-			logger.L().Logf(0, "request: %v, time: %s | info: %v", req, time.Now().String(), info)
-
+		md, ok := metadata.FromIncomingContext(ctx)
+		if ok && len(md["x-agent-request"]) > 0 && md["x-agent-request"][0] == "true" {
 			return handler(ctx, req)
 		}
-		md, ok := metadata.FromIncomingContext(ctx)
+
+		md, ok = metadata.FromIncomingContext(ctx)
 		if !ok {
 			return nil, errors.New("unauthorized")
 		}

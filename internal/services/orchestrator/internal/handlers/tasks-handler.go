@@ -26,21 +26,16 @@ func (th *TasksHandler) GetTasks(ctx context.Context, req *pb.GetTasksRequest) (
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "not found")
 	}
-	evals, err := th.repo.GetPrimeEvaluationByParentID(r[0].Id)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, "not found")
-	}
-	notEvaluatedExpression := evals[0]
 
 	return &pb.GetTasksResponse{
-		ParentID:      int32(notEvaluatedExpression.ParentID),
-		Id:            int64(notEvaluatedExpression.Id),
-		Arg1:          float32(notEvaluatedExpression.Arg1),
-		Arg2:          float32(notEvaluatedExpression.Arg2),
-		Operation:     notEvaluatedExpression.Operation,
+		ParentID:      int32(r.ParentID),
+		Id:            int64(r.Id),
+		Arg1:          float32(r.Arg1),
+		Arg2:          float32(r.Arg2),
+		Operation:     r.Operation,
 		OperationTime: 0,
 		Result:        0,
 		Error:         false,
-		CompletedAt:   notEvaluatedExpression.CompletedAt.String(),
+		CompletedAt:   "",
 	}, nil
 }

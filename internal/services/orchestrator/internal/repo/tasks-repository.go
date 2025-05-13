@@ -55,35 +55,36 @@ func (tr *TasksRepository) GetAllTasks() []models.PrimeEvaluation {
 	return evals
 }
 
-func (tr *TasksRepository) GetPendingTasks() ([]models.Expressions, error) {
-	queryBuilder := squirrel.Select("id", "expression", "user_id", "status").
-		From("evaluations").
-		Where(squirrel.Eq{"status": "pending"}).PlaceholderFormat(squirrel.Dollar)
+func (tr *TasksRepository) GetPendingTasks() (models.PrimeEvaluation, error) {
+	queryBuilder := squirrel.Select("*").
+		From("prime_evaluations").
+		Where("completed_at is NULL").PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := queryBuilder.ToSql()
 	if err != nil {
 		logger.L().Logf(0, "can't build query | err: %v", err)
-		return nil, err
+		return models.PrimeEvaluation{}, err
 	}
 
-	rows, err := tr.db.Query(query, args...)
-	if err != nil {
-		logger.L().Logf(0, "can complete query | err: %v", err)
-		return nil, err
-	}
-	defer rows.Close()
+	row := tr.db.QueryRow(query, args...)
 
-	var expressions []models.Expressions
-	for rows.Next() {
-		var e models.Expressions
-		if err = rows.Scan(&e.Id, &e.Expression, &e.UserId, &e.Status); err != nil {
-			logger.L().Logf(0, "can't scan to model | err: %v", err)
-			return nil, err
-		}
-		expressions = append(expressions, e)
+	var expression models.PrimeEvaluation
+	if err = row.Scan(
+		&expression.Id,
+		&expression.ParentID,
+		&expression.Arg1,
+		&expression.Arg2,
+		&expression.Operation,
+		&expression.OperationTime,
+		&expression.Result,
+		&expression.Error,
+		&expression.CompletedAt,
+		&expression.UserId,
+	); err != nil {
+		logger.L().Logf(0, "ISE | ERR: %v", err)
+		return models.PrimeEvaluation{}, err
 	}
-
-	return expressions, nil
+	return expression, nil
 }
 
 func (tr *TasksRepository) UpdateExpressionResult(id int, status string, result float64) error {
@@ -115,21 +116,28 @@ func (tr *TasksRepository) UpdateExpressionStatus(id int, status string) error {
 	return err
 }
 
-func (tr *TasksRepository) SavePrimeEvaluation(pe models.PrimeEvaluation) error {
+func (tr *TasksRepository) SavePrimeEvaluation(pe models.PrimeEvaluation) (int, error) {
 	queryBuilder := squirrel.Insert("prime_evaluations").
 		Columns("parent_id", "arg1", "arg2", "operation", "operation_time", "result").
-		Values(pe.ParentID, pe.Arg1, pe.Arg2, pe.Operation, pe.OperationTime, 0).PlaceholderFormat(squirrel.Dollar)
+		Values(pe.ParentID, pe.Arg1, pe.Arg2, pe.Operation, pe.OperationTime, 0).
+		PlaceholderFormat(squirrel.Dollar).
+		Suffix("RETURNING id")
 
 	query, args, err := queryBuilder.ToSql()
 	if err != nil {
 		logger.L().Logf(0, "can't build query | err: %v", err)
-		return err
+		return 0, err
 	}
 
-	n, err := tr.db.Exec(query, args...)
-	logger.L().Logf(0, "n: %v | err: %v", n, err)
+	var id int
+	err = tr.db.QueryRow(query, args...).Scan(&id)
+	if err != nil {
+		logger.L().Logf(0, "can't insert evaluation | err: %v", err)
+		return 0, err
+	}
 
-	return err
+	logger.L().Logf(0, "inserted evaluation with id: %d", id)
+	return id, nil
 }
 
 func (tr *TasksRepository) GetPrimeEvaluationByParentID(parentID int) ([]models.PrimeEvaluation, error) {
@@ -150,7 +158,7 @@ func (tr *TasksRepository) GetPrimeEvaluationByParentID(parentID int) ([]models.
 	}
 	defer rows.Close()
 
-	logger.L().Logf(0, "rows: %v", rows)
+	//logger.L().Logf(0, "rows: %v", rows)
 
 	var results []models.PrimeEvaluation
 	for rows.Next() {
@@ -172,4 +180,35 @@ func (tr *TasksRepository) GetPrimeEvaluationByParentID(parentID int) ([]models.
 	}
 
 	return results, nil
+}
+
+func (tr *TasksRepository) GetPrimeEvaluationByID(id int) (models.PrimeEvaluation, error) {
+	queryBuilder := squirrel.Select("id", "parent_id", "arg1", "arg2", "operation", "operation_time", "result", "error", "completed_at").
+		From("prime_evaluations").
+		Where(squirrel.Eq{"id": id}).PlaceholderFormat(squirrel.Dollar)
+
+	query, args, err := queryBuilder.ToSql()
+	if err != nil {
+		logger.L().Logf(0, "can't build query | err: %v", err)
+		return models.PrimeEvaluation{}, err
+	}
+
+	row := tr.db.QueryRow(query, args...)
+
+	var res models.PrimeEvaluation
+	if err = row.Scan(
+		&res.Id,
+		&res.ParentID,
+		&res.Arg1,
+		&res.Arg2,
+		&res.Operation,
+		&res.OperationTime,
+		&res.Result,
+		&res.Error,
+		&res.CompletedAt,
+	); err != nil {
+		logger.L().Logf(0, "can't parse data from db | err: %v", err)
+	}
+
+	return res, nil
 }
