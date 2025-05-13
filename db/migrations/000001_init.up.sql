@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS prime_evaluations (
 );
 
 
-CREATE TABLE IF NOT EXISTS users(
-    id uuid primary key,
-    email text unique not null,
-    hash text not null,
-    created_at timestamp with time zone
-)
+CREATE TABLE users (
+                       id UUID PRIMARY KEY,
+                       email TEXT UNIQUE NOT NULL,
+                       hash TEXT NOT NULL,
+                       created_at TIMESTAMP NOT NULL
+);

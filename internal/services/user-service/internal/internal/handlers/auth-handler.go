@@ -8,7 +8,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"ndx/internal/services/user-service/internal/internal/dto"
+	middleware "ndx/pkg/middlewares"
 	"ndx/pkg/utils"
+	"net/http"
 	"time"
 
 	"ndx/internal/services/user-service/internal/internal/repository"
@@ -62,6 +64,18 @@ func (ah *AuthHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*
 		return nil, status.Error(codes.Internal, "internal")
 	}
 
+	cookie := &http.Cookie{
+		Name:     "token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   10,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	ctx = middleware.WithSetCookie(ctx, cookie)
+
 	return &pb.RegisterResponse{
 		Uuid:  id.String(),
 		Token: token,
@@ -79,10 +93,26 @@ func (ah *AuthHandler) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Log
 	if err != nil {
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	}
+
 	if ok {
+
+		cookie := &http.Cookie{
+			Name:     "token",
+			Value:    utils.NewToken(req.Email),
+			Path:     "/",
+			MaxAge:   10,
+			Secure:   true,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		ctx = middleware.WithSetCookie(ctx, cookie)
+
 		return &pb.LoginResponse{
 			Uuid:  resp.Id.String(),
 			Token: resp.Hash,
 		}, nil
 	}
+
+	return nil, status.Error(codes.Unauthenticated, "wrong password")
 }

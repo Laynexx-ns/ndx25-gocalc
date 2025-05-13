@@ -7,8 +7,10 @@ import (
 )
 
 type Config struct {
+	GatewayPort      int                `yaml:"GATEWAY_PORT" yaml-default:"8080"`
 	AgentConf        AgentConf          `yaml:"AGENT"`
 	OrchestratorConf OrchestratorConfig `yaml:"ORCHESTRATOR"`
+	UserServiceConf  UserServiceConf    `yaml:"USER_SERVICE"`
 	PgConfig         postgres.Config    `yaml:"POSTGRES"`
 	JwtSecretKey     string             `yaml:"JWT_SECRET_KEY"`
 }
@@ -29,6 +31,11 @@ type AgentTimeConf struct {
 type OrchestratorConfig struct {
 	Port int    `yaml:"ORCHESTRATOR_PORT" yaml-default:"8081"`
 	Host string `yaml:"ORCHESTRATOR_HOST" yaml-default:"localhost"`
+}
+
+type UserServiceConf struct {
+	Port int    `yaml:"USER_SERVICE_PORT" yaml-default:"8083"`
+	Host string `yaml:"USER_SERVICE_HOST" yaml-default:"localhost"`
 }
 
 func NewConfig() Config {

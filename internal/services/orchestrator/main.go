@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"google.golang.org/grpc"
+	"ndx/internal/adapters/interceptors"
 	"ndx/internal/services/orchestrator/internal"
 	orchestratorservice "ndx/pkg/api/orchestrator-service"
 	"ndx/pkg/config"
@@ -28,7 +29,9 @@ func main() {
 		logger.L().Fatalf("can't start listening on orch port | err: %v", err)
 	}
 
-	server := grpc.NewServer()
+	server := grpc.NewServer([]grpc.ServerOption{
+		grpc.UnaryInterceptor(interceptors.AuthInterceptor()),
+	}...)
 	orchestratorservice.RegisterOrchestratorServiceServer(server, svc)
 
 	if err = server.Serve(lis); err != nil {
