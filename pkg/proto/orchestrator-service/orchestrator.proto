@@ -19,7 +19,7 @@ service OrchestratorService {
   }
   rpc GetExpressionById (GetExpressionByIdRequest) returns (GetExpressionByIdResponse){
     option (google.api.http) = {
-      get: "/api/v1/expressions/{id}"
+      get: "/api/v1/expression/{id}"
     };
   }
   rpc GetTasks (GetTasksRequest) returns (GetTasksResponse);

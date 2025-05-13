@@ -37,17 +37,18 @@ func (h *ExpressionsHandler) GetExpressions(ctx context.Context, req *pb.GetExpr
 		return nil, status.Error(codes.Internal, "db error: "+err.Error())
 	}
 
-	var resp pb.GetExpressionsResponse
-	for _, e := range exprs {
-		resp.Response = append(resp.Response, &pb.ExpressionsResponse{
-			Id:         int32(e.Id),
-			Status:     e.Status,
-			Result:     float32(e.Result),
-			Expression: e.Expression,
-			UserId:     e.UserId.String(),
+	var expressions []*pb.ExpressionsResponse
+	for _, v := range exprs {
+		expressions = append(expressions, &pb.ExpressionsResponse{
+			Id:         int32(v.Id),
+			Status:     v.Status,
+			Result:     float32(v.Result),
+			Expression: v.Expression,
+			UserId:     v.UserId.String(),
 		})
 	}
-	return &resp, nil
+
+	return &pb.GetExpressionsResponse{Response: expressions}, nil
 }
 
 func (h *ExpressionsHandler) PostExpression(ctx context.Context, req *pb.PostExpressionRequest) (*pb.PostExpressionResponse, error) {

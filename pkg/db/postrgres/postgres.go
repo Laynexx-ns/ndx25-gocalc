@@ -15,7 +15,7 @@ import (
 
 type Config struct {
 	Host         string `yaml:"POSTGRES_HOST" env:"POSTGRES_HOST" env-default:"localhost"`
-	Port         uint16 `yaml:"POSTGRES_PORT" env:"POSTGRES_PORT" env-default:"5432"`
+	Port         uint16 `yaml:"POSTGRES_PORT" env:"POSTGRES_PORT" env-default:"5433"`
 	Username     string `yaml:"POSTGRES_USER" env:"POSTGRES_USER" env-default:"root"`
 	Password     string `yaml:"POSTGRES_PASSWORD" env:"POSTGRES_PASSWORD" env-default:"password"`
 	Database     string `yaml:"POSTGRES_DB" env:"POSTGRES_DB" env-default:"postgres"`

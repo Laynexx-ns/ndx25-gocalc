@@ -51,7 +51,7 @@ func (er *ExpressionRepository) GetAllExpressions() ([]models.Expressions, error
 }
 
 func (r *ExpressionRepository) GetExpressions(userID uuid.UUID) ([]models.Expressions, error) {
-	rows, err := r.db.Query(`SELECT id, expression, result, status, user_id FROM evaluations WHERE user_id = $1`, userID)
+	rows, err := r.db.Query(`SELECT * FROM evaluations WHERE user_id = $1`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (r *ExpressionRepository) GetExpressions(userID uuid.UUID) ([]models.Expres
 	var results []models.Expressions
 	for rows.Next() {
 		var e models.Expressions
-		err = rows.Scan(&e.Id, &e.Expression, &e.Result, &e.Status, &e.UserId)
+		err = rows.Scan(&e.Id, &e.UserId, &e.Status, &e.Result, &e.UserId)
 		if err != nil {
 			return nil, err
 		}
