@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"ndx/internal/services/orchestrator/internal/repository"
+	"ndx/internal/services/orchestrator/internal/repo"
 	"ndx/internal/services/orchestrator/internal/types"
 	pb "ndx/pkg/api/orchestrator-service"
 )
@@ -13,22 +13,27 @@ import (
 type TasksHandler struct {
 	db   *sql.DB
 	orch *types.Orchestrator
-	repo *repository.TasksRepository
+	repo *repo.TasksRepository
 }
 
 func NewTasksHandler(db *sql.DB, orch *types.Orchestrator) *TasksHandler {
 	return &TasksHandler{
 		db:   db,
 		orch: orch,
-		repo: repository.NewTaskRepository(db),
+		repo: repo.NewTaskRepository(db),
 	}
 }
 
 func (th *TasksHandler) GetTasks(ctx context.Context, req *pb.GetTasksRequest) (*pb.GetTasksResponse, error) {
-	notEvaluatedExpression := th.repo.GetTask()
-	if notEvaluatedExpression == nil {
+	r, err := th.repo.GetPendingTasks()
+	if err != nil {
 		return nil, status.Error(codes.NotFound, "not found")
 	}
+	evals, err := th.repo.GetPrimeEvaluationByParentID(r[0].Id)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, "not found")
+	}
+	notEvaluatedExpression := evals[0]
 
 	return &pb.GetTasksResponse{
 		ParentID:      int32(notEvaluatedExpression.ParentID),

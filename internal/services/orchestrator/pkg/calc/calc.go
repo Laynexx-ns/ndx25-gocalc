@@ -2,10 +2,9 @@ package calc
 
 import (
 	"errors"
-	"ndx/internal/models"
-	"ndx/internal/services/orchestrator/internal/types"
-
 	"fmt"
+	"ndx/internal/models"
+	"ndx/internal/services/orchestrator/internal/repo"
 	"strconv"
 	"strings"
 	"time"
@@ -29,59 +28,47 @@ func isOperator(ch rune) bool {
 	return ch == '+' || ch == '-' || ch == '*' || ch == '/'
 }
 
-func EvaluateSimpleExpression(a, b float64, operand string, parentId int, orch *types.Orchestrator) (float64, error) {
-	resChan := make(chan float64, 1)
-	errChan := make(chan error, 1)
-	defer close(resChan)
-	defer close(errChan)
+func EvaluateSimpleExpression(a, b float64, operand string, parentId int, repo *repo.TasksRepository) (float64, error) {
 
-	orch.Mu.Lock()
-	id := len(orch.Queue)
-
-	orch.Queue = append(orch.Queue, models.PrimeEvaluation{
+	err := repo.SavePrimeEvaluation(models.PrimeEvaluation{
 		ParentID:      parentId,
-		Id:            id,
 		Arg1:          a,
 		Arg2:          b,
 		Operation:     operand,
 		OperationTime: 0,
-		Result:        0,
 	})
-	orch.Mu.Unlock()
+	res, err := WaitForEvaluationResult(repo, parentId, 5*time.Second)
 
-	WaitOperationResult(resChan, errChan, id, parentId, orch)
-
-	select {
-	case res := <-resChan:
-		return res, nil
-	case err := <-errChan:
+	if err != nil {
 		return 0, err
 	}
+
+	return res, nil
 }
-func WaitOperationResult(resChan chan float64, errChan chan error, id, parentId int, orch *types.Orchestrator) {
-	timeout := time.After(5 * time.Second)
-	ticker := time.NewTicker(100 * time.Millisecond)
+
+func WaitForEvaluationResult(repo *repo.TasksRepository, Id int, timeout time.Duration) (float64, error) {
+	start := time.Now()
+	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-timeout:
-			fmt.Print("OPERATION TIMEOUT")
-			errChan <- errors.New("operation timeout")
-			return
 		case <-ticker.C:
-			orch.Mu.Lock()
-			if id < len(orch.Queue) && orch.Queue[id].OperationTime != 0 {
-				res := orch.Queue[id].Result
-				fmt.Print("OPERATION EVALUATED")
-				orch.Mu.Unlock()
-				resChan <- res
-				return
+			s, err := repo.GetPrimeEvaluationByParentID(Id)
+			step := s[0]
+			if err != nil {
+				return 0, err
 			}
-			orch.Mu.Unlock()
+			if step.OperationTime != 0 {
+				return step.Result, nil
+			}
+			if time.Since(start) > timeout {
+				return 0, errors.New("evaluation timeout")
+			}
 		}
 	}
 }
+
 func Parse(expression string) ([]string, error) {
 	var result []string
 	var operators []rune
@@ -126,33 +113,33 @@ func Parse(expression string) ([]string, error) {
 	return result, nil
 }
 
-func evaluate(parsedExpression []string, parentId int, orch *types.Orchestrator) (float64, error) {
+func evaluate(parsedExpression []string, parentId int, repo *repo.TasksRepository) (float64, error) {
 	var stack []float64
-	var evRes float64
 
 	for _, token := range parsedExpression {
 		if num, err := strconv.ParseFloat(token, 64); err == nil {
 			stack = append(stack, num)
 		} else if isOperator2(token) {
 			if len(stack) < 2 {
-				return 0, fmt.Errorf("%s", token)
+				return 0, fmt.Errorf("not enough operands for '%s'", token)
 			}
 			b := stack[len(stack)-1]
 			a := stack[len(stack)-2]
 			stack = stack[:len(stack)-2]
 
-			evRes, err = EvaluateSimpleExpression(a, b, token, parentId, orch)
+			res, err := EvaluateSimpleExpression(a, b, token, parentId, repo)
 			if err != nil {
 				return 0, err
 			}
-			stack = append(stack, evRes)
+
+			stack = append(stack, res)
 		} else {
-			return 0, fmt.Errorf("invalid operation: %s", token)
+			return 0, fmt.Errorf("invalid token: %s", token)
 		}
 	}
 
 	if len(stack) != 1 {
-		return 0, fmt.Errorf("invalid operation")
+		return 0, fmt.Errorf("invalid expression")
 	}
 
 	return stack[0], nil
@@ -167,21 +154,18 @@ func isOperator2(token string) bool {
 	}
 }
 
-func Calc(expression string, resChan chan float64, errChan chan error, PID int, orch *types.Orchestrator) {
-	fmt.Println("calculation invoked")
-
-	a, err := Parse(expression)
+func Calc(expression string, resChan chan float64, errChan chan error, PID int, repo *repo.TasksRepository) {
+	parsed, err := Parse(expression)
 	if err != nil {
 		errChan <- err
-
+		return
 	}
-	res, err := evaluate(a, PID, orch)
+
+	res, err := evaluate(parsed, PID, repo)
 	if err != nil {
 		errChan <- err
-
-	}
-	if resChan != nil {
-		resChan <- res
+		return
 	}
 
+	resChan <- res
 }

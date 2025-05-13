@@ -39,11 +39,12 @@ message ExpressionsResponse {
   string status = 2;
   float result = 3;
   string expression = 4;
-
+  string user_id = 5;
 }
 
 message PostExpressionRequest {
   string expression = 1;
+  string user_id = 2;
 }
 
 message PostExpressionResponse {
@@ -73,6 +74,5 @@ message GetTasksResponse{
   float result = 7;
   bool error = 8;
   string completed_at = 9;
-  string user_id = 10;
 }
 
