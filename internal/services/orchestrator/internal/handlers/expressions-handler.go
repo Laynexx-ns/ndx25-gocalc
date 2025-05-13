@@ -2,35 +2,37 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"ndx/internal/models"
-	"ndx/internal/services/orchestrator/internal"
 	"ndx/internal/services/orchestrator/internal/repo"
-	"ndx/internal/services/orchestrator/internal/types"
+	"ndx/internal/services/orchestrator/internal/use_case"
 	pb "ndx/pkg/api/orchestrator-service"
+	"ndx/pkg/logger"
 	"regexp"
-	"sync/atomic"
+	"time"
 )
 
-type ExpressionsGRPCHandler struct {
+type ExpressionsHandler struct {
 	pb.UnimplementedOrchestratorServiceServer
-	repo *repo.ExpressionRepository
-	orch *types.Orchestrator
+	db       *sql.DB
+	exprRepo *repo.ExpressionRepository
+	taskRepo *repo.TasksRepository
 }
 
-func NewExpressionsGRPCHandler(repo *repo.ExpressionRepository, orch *types.Orchestrator) *ExpressionsGRPCHandler {
-	return &ExpressionsGRPCHandler{repo: repo, orch: orch}
+func NewExpressionsHandler(repo *repo.ExpressionRepository, repository *repo.TasksRepository, db *sql.DB) *ExpressionsHandler {
+	return &ExpressionsHandler{exprRepo: repo, taskRepo: repository, db: db}
 }
 
-func (h *ExpressionsGRPCHandler) GetExpressions(ctx context.Context, req *pb.GetExpressionsRequest) (*pb.GetExpressionsResponse, error) {
+func (h *ExpressionsHandler) GetExpressions(ctx context.Context, req *pb.GetExpressionsRequest) (*pb.GetExpressionsResponse, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid UUID")
 	}
 
-	exprs, err := h.repo.GetExpressions(userID)
+	exprs, err := h.exprRepo.GetExpressions(userID)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "db error: "+err.Error())
 	}
@@ -48,7 +50,7 @@ func (h *ExpressionsGRPCHandler) GetExpressions(ctx context.Context, req *pb.Get
 	return &resp, nil
 }
 
-func (h *ExpressionsGRPCHandler) PostExpression(ctx context.Context, req *pb.PostExpressionRequest) (*pb.PostExpressionResponse, error) {
+func (h *ExpressionsHandler) PostExpression(ctx context.Context, req *pb.PostExpressionRequest) (*pb.PostExpressionResponse, error) {
 	userID, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return nil, err
@@ -59,7 +61,7 @@ func (h *ExpressionsGRPCHandler) PostExpression(ctx context.Context, req *pb.Pos
 		return nil, status.Error(codes.InvalidArgument, "invalid expression")
 	}
 
-	id, err := h.repo.SaveExpression(models.Expressions{
+	id, err := h.exprRepo.SaveExpression(models.Expressions{
 		UserId:     userID,
 		Expression: req.Expression,
 		Status:     "pending",
@@ -68,24 +70,26 @@ func (h *ExpressionsGRPCHandler) PostExpression(ctx context.Context, req *pb.Pos
 		return nil, status.Error(codes.Internal, "db error: "+err.Error())
 	}
 
-	newID := atomic.AddUint64(&h.orch.ExpressionCounter, 1)
-	h.orch.Mu.Lock()
-	h.orch.Expressions = append(h.orch.Expressions, models.Expressions{
-		Id:         int(id),
-		Status:     "pending",
-		Result:     0,
-		Expression: req.Expression,
-		UserId:     userID,
-	})
-	h.orch.Mu.Unlock()
-
-	go internal.CreateTasks(h.orch)
+	use_case.CreateTasks(h.taskRepo)
 
 	return &pb.PostExpressionResponse{Id: int32(id)}, nil
 }
 
-func (h *ExpressionsGRPCHandler) GetExpressionById(ctx context.Context, req *pb.GetExpressionByIdRequest) (*pb.GetExpressionByIdResponse, error) {
-	expr, err := h.repo.GetExpressionById(int(req.Id))
+func (h *ExpressionsHandler) PostExpressionResult(ctx context.Context,
+	req *pb.PostExpressionResultRequest) (*pb.PostExpressionResultResponse, error) {
+
+	query := `UPDATE prime_evaluations 
+			set result = $2, operation_time = $3, completed_at = $4
+			WHERE id = $1`
+	if _, err := h.db.Exec(query, req.Id, req.Result, req.OperationTime, time.Now().String()); err != nil {
+		logger.L().Logf(0, "can't update evaluation | err: %v", err)
+		return nil, err
+	}
+	return &pb.PostExpressionResultResponse{}, nil
+}
+
+func (h *ExpressionsHandler) GetExpressionById(ctx context.Context, req *pb.GetExpressionByIdRequest) (*pb.GetExpressionByIdResponse, error) {
+	expr, err := h.exprRepo.GetExpressionById(int(req.Id))
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "expression not found")
 	}

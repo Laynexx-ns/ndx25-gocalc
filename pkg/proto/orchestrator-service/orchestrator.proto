@@ -23,6 +23,12 @@ service OrchestratorService {
     };
   }
   rpc GetTasks (GetTasksRequest) returns (GetTasksResponse);
+  rpc PostExpressionResult (PostExpressionResultRequest) returns (PostExpressionResultResponse){
+    option (google.api.http) = {
+      post: "/api/v1/expressions/agent"
+      body: "*"
+    };
+  }
 }
 
 message GetExpressionsRequest {
@@ -76,3 +82,19 @@ message GetTasksResponse{
   string completed_at = 9;
 }
 
+
+message PostExpressionResultRequest{
+  int32 parentID = 1;
+  int64 id = 2;
+  float arg1 = 3;
+  float arg2 = 4;
+  string operation = 5;
+  int32 operation_time = 6;
+  float result = 7;
+  bool error = 8;
+  string completed_at = 9;
+}
+
+message PostExpressionResultResponse{
+
+}

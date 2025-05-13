@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const agentContextKey = "isAgentRequest"
+
 func AuthInterceptor() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -18,6 +20,12 @@ func AuthInterceptor() grpc.UnaryServerInterceptor {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (any, error) {
+		isAgent, ok := ctx.Value(agentContextKey).(bool)
+		if isAgent && ok {
+			logger.L().Logf(0, "request: %v, time: %s | info: %v", req, time.Now().String(), info)
+
+			return handler(ctx, req)
+		}
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			return nil, errors.New("unauthorized")
@@ -28,7 +36,7 @@ func AuthInterceptor() grpc.UnaryServerInterceptor {
 		if len(md["authorization"]) < 1 {
 			return nil, errors.New("unauthorized")
 		}
-		token := strings.TrimPrefix(md["authorization"][0], "Bearer")
+		token := strings.TrimSpace(strings.TrimPrefix(md["authorization"][0], "Bearer"))
 		if _, err := utils.VerifyToken(token); err != nil {
 			return nil, errors.New("unauthorized")
 		}

@@ -6,18 +6,19 @@ import (
 	"ndx/internal/models"
 	"ndx/internal/services/orchestrator/internal/repo"
 	"ndx/internal/services/orchestrator/pkg/calc"
+	"ndx/pkg/logger"
 	"time"
 )
 
-func createTasks(repo *repo.TasksRepository) {
+func CreateTasks(repo *repo.TasksRepository) {
 	expressions, err := repo.GetPendingTasks()
 	if err != nil {
-		log.Println("can't fetch tasks:", err)
+		logger.L().Logf(0, "can't get pending tasks | err: %v", err)
 		return
 	}
 
 	for _, expr := range expressions {
-		go func(expr models.Expressions) {
+		func(expr models.Expressions) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
 
@@ -29,7 +30,7 @@ func createTasks(repo *repo.TasksRepository) {
 			select {
 			case res := <-resChan:
 				_ = repo.UpdateExpressionResult(expr.Id, "successfully calculated", res)
-			case err := <-errChan:
+			case err = <-errChan:
 				_ = repo.UpdateExpressionResult(expr.Id, "failed", 0)
 				log.Println("calc error:", err)
 			case <-ctx.Done():

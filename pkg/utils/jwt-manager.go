@@ -29,6 +29,9 @@ func NewToken(email string) string {
 }
 
 func VerifyToken(tokenString string) (*jwt.Token, error) {
+	if len(jwtSecret) == 0 {
+		jwtSecret = []byte(config.NewConfig().JwtSecretKey)
+	}
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecret, nil
 	})

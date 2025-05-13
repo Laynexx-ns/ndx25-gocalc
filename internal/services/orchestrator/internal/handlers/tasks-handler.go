@@ -6,20 +6,17 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"ndx/internal/services/orchestrator/internal/repo"
-	"ndx/internal/services/orchestrator/internal/types"
 	pb "ndx/pkg/api/orchestrator-service"
 )
 
 type TasksHandler struct {
 	db   *sql.DB
-	orch *types.Orchestrator
 	repo *repo.TasksRepository
 }
 
-func NewTasksHandler(db *sql.DB, orch *types.Orchestrator) *TasksHandler {
+func NewTasksHandler(db *sql.DB) *TasksHandler {
 	return &TasksHandler{
 		db:   db,
-		orch: orch,
 		repo: repo.NewTaskRepository(db),
 	}
 }

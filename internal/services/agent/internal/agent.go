@@ -14,16 +14,17 @@ type AgentServer struct {
 	Conf      config.Config
 	Agent     *types.Agent
 	db        *sql.DB
-	evHandler *handlers.EvaluateHandler
+	EvHandler *handlers.EvaluateHandler
 }
 
 func NewAgentServer(c config.Config, db *sql.DB) *AgentServer {
+	a := &types.Agent{
+		Tasks: []models.PrimeEvaluation{},
+	}
 	return &AgentServer{
-		Conf: c,
-		Agent: &types.Agent{
-			Tasks: []models.PrimeEvaluation{},
-		},
+		Conf:      c,
+		Agent:     a,
 		db:        db,
-		evHandler: handlers.NewEvaluateHandler(db, c),
+		EvHandler: handlers.NewEvaluateHandler(db, c, a),
 	}
 }

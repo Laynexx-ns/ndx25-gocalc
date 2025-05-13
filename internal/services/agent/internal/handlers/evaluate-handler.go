@@ -1,18 +1,19 @@
 package handlers
 
 import (
-	"bytes"
+	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"math"
 	"ndx/internal/models"
 	"ndx/internal/services/agent/internal/types"
+	pb "ndx/pkg/api/orchestrator-service"
 
 	"ndx/pkg/config"
 
 	"log"
-	"net/http"
 	"time"
 )
 
@@ -20,12 +21,25 @@ type EvaluateHandler struct {
 	db     *sql.DB
 	config config.Config
 	Agent  *types.Agent
+	client pb.OrchestratorServiceClient
 }
 
-func NewEvaluateHandler(db *sql.DB, c config.Config) *EvaluateHandler {
+func NewEvaluateHandler(db *sql.DB, c config.Config, agent *types.Agent) *EvaluateHandler {
+	conn, err := grpc.NewClient(
+		fmt.Sprintf("%s:%d", c.OrchestratorConf.Host, c.OrchestratorConf.Port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		log.Fatalf("could not connect to orchestrator gRPC: %v", err)
+	}
+
+	client := pb.NewOrchestratorServiceClient(conn)
+
 	return &EvaluateHandler{
 		db:     db,
 		config: c,
+		Agent:  agent,
+		client: client,
 	}
 }
 
@@ -47,29 +61,29 @@ func (eh *EvaluateHandler) CycleTask() {
 		}
 	}
 }
-
 func (eh *EvaluateHandler) getTask() (models.PrimeEvaluation, error) {
-	client := http.Client{}
-	resp, err := client.Get(fmt.Sprintf("http://%s:%d/internal/task", eh.config.OrchestratorConf.Host, eh.config.OrchestratorConf.Port))
-	if err != nil {
-		return models.PrimeEvaluation{}, err
-	}
-	defer resp.Body.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-	var expression models.PrimeEvaluation
-	err = json.NewDecoder(resp.Body).Decode(&expression)
+	resp, err := eh.client.GetTasks(ctx, &pb.GetTasksRequest{})
 	if err != nil {
 		return models.PrimeEvaluation{}, err
 	}
 
-	return expression, nil
+	return models.PrimeEvaluation{
+		ParentID:  int(resp.ParentID),
+		Id:        int(resp.Id),
+		Arg1:      float64(resp.Arg1),
+		Arg2:      float64(resp.Arg2),
+		Operation: resp.Operation,
+	}, nil
 }
 
 func (eh *EvaluateHandler) processTask(expression *models.PrimeEvaluation) float64 {
-
 	result := 0.0
 	operationTime := 0
 	hasErr := false
+
 	switch expression.Operation {
 	case "^":
 		result = math.Pow(expression.Arg1, expression.Arg2)
@@ -85,45 +99,35 @@ func (eh *EvaluateHandler) processTask(expression *models.PrimeEvaluation) float
 		operationTime = eh.config.AgentConf.TimeConf.MultiplicationTime
 	case "/":
 		if expression.Arg2 != 0 {
-			operationTime = eh.config.AgentConf.TimeConf.DivisionTime
 			result = expression.Arg1 / expression.Arg2
+			operationTime = eh.config.AgentConf.TimeConf.DivisionTime
 		} else {
 			log.Println("Division by zero")
 			hasErr = true
-			return 0
 		}
 	default:
 		log.Println("Unknown operation", expression)
 		hasErr = true
-		return 0
 	}
 
-	response := models.PrimeEvaluation{
-		ParentID:      expression.ParentID,
-		Id:            expression.Id,
-		Arg1:          expression.Arg1,
-		Arg2:          expression.Arg2,
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, err := eh.client.PostExpressionResult(ctx, &pb.PostExpressionResultRequest{
+		ParentID:      int32(expression.ParentID),
+		Id:            int64(expression.Id),
+		Arg1:          float32(expression.Arg1),
+		Arg2:          float32(expression.Arg2),
 		Operation:     expression.Operation,
-		Result:        result,
-		OperationTime: operationTime,
+		Result:        float32(result),
+		OperationTime: int32(operationTime),
 		Error:         hasErr,
-	}
-
-	p, err := json.Marshal(response)
+	})
 	if err != nil {
-		log.Println("invalid expression:", err)
-		return 0
-	}
-
-	client := http.Client{}
-	_, err = client.Post(fmt.Sprintf("http://%s:%d/internal/task", eh.config.OrchestratorConf.Host, eh.config.OrchestratorConf.Port), //localhost:/internal/task",
-		"application/json", bytes.NewReader(p))
-	if err != nil {
-		log.Println("can't send request to orchestrator")
+		log.Printf("failed to send result to orchestrator: %v", err)
 	} else {
-		log.Printf("evaluated expression was successfully send  - %v | result - %f", expression, result)
-		return result
+		log.Printf("evaluated expression sent - %v | result - %f", expression, result)
 	}
-	return result
 
+	return result
 }
