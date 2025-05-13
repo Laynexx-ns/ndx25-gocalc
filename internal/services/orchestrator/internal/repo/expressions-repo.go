@@ -69,9 +69,17 @@ func (r *ExpressionRepository) GetExpressions(userID uuid.UUID) ([]models.Expres
 	return results, nil
 }
 
+func (r *ExpressionRepository) UpdateExpressionStatusAndResult(id int, status string, result float64) error {
+	query := `UPDATE evaluations 
+        SET status = $1, result = $2 
+        WHERE id = $3`
+	_, err := r.db.Exec(query, status, result, id)
+	return err
+}
+
 func (r *ExpressionRepository) SaveExpression(expr models.Expressions) (int, error) {
 	var id int
-	err := r.db.QueryRow(`INSERT INTO evaluations (user_id, status, expression) VALUES ($1, $2, $3) RETURNING id`, expr.UserId, expr.Status, expr.Expression).Scan(&id)
+	err := r.db.QueryRow(`INSERT INTO evaluations (user_id, status, result, expression) VALUES ($1, $2, $3, $4) RETURNING id`, expr.UserId, expr.Status, 0, expr.Expression).Scan(&id)
 	return id, err
 }
 

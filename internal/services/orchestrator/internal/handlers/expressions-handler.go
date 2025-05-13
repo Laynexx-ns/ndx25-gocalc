@@ -70,7 +70,7 @@ func (h *ExpressionsHandler) PostExpression(ctx context.Context, req *pb.PostExp
 		return nil, status.Error(codes.Internal, "db error: "+err.Error())
 	}
 
-	use_case.CreateTasks(h.taskRepo)
+	use_case.CreateTasks(h.taskRepo, h.exprRepo)
 
 	return &pb.PostExpressionResponse{Id: int32(id)}, nil
 }
@@ -79,13 +79,51 @@ func (h *ExpressionsHandler) PostExpressionResult(ctx context.Context,
 	req *pb.PostExpressionResultRequest) (*pb.PostExpressionResultResponse, error) {
 
 	query := `UPDATE prime_evaluations 
-			set result = $2, operation_time = $3, completed_at = $4
-			WHERE id = $1`
-	if _, err := h.db.Exec(query, req.Id, req.Result, req.OperationTime, time.Now()); err != nil {
+        SET result = $2, operation_time = $3, completed_at = $4, error = $5
+        WHERE id = $1`
+	_, err := h.db.Exec(query, req.Id, req.Result, req.OperationTime, time.Now(), req.Error)
+	if err != nil {
 		logger.L().Logf(0, "can't update evaluation | err: %v", err)
 		return nil, err
 	}
+
+	go h.checkAndUpdateParentStatus(int(req.ParentID))
+
 	return &pb.PostExpressionResultResponse{}, nil
+}
+
+func (h *ExpressionsHandler) checkAndUpdateParentStatus(parentID int) {
+	subtasks, err := h.taskRepo.GetPrimeEvaluationByParentID(parentID)
+	if err != nil {
+		logger.L().Logf(0, "error getting subtasks: %v", err)
+		return
+	}
+
+	allCompleted := true
+	hasErrors := false
+	var finalResult float64
+
+	for _, task := range subtasks {
+		if task.CompletedAt.IsZero() {
+			allCompleted = false
+			break
+		}
+		if task.Error {
+			hasErrors = true
+		}
+
+	}
+
+	if allCompleted {
+		status := "completed"
+		if hasErrors {
+			status = "error"
+		}
+		err = h.exprRepo.UpdateExpressionStatusAndResult(parentID, status, finalResult)
+		if err != nil {
+			logger.L().Logf(0, "error updating parent expression: %v", err)
+		}
+	}
 }
 
 func (h *ExpressionsHandler) GetExpressionById(ctx context.Context, req *pb.GetExpressionByIdRequest) (*pb.GetExpressionByIdResponse, error) {

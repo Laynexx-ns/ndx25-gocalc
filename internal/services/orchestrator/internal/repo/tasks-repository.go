@@ -17,43 +17,43 @@ func NewTaskRepository(db *sql.DB) *TasksRepository {
 	}
 }
 
-func (tr *TasksRepository) GetAllTasks() []models.PrimeEvaluation {
-	queryBuilder := squirrel.Select("*").
-		From("prime_evaluations")
-
-	query, args, err := queryBuilder.ToSql()
-	if err != nil {
-		logger.L().Fatalf("can't generate query | err: %v", err)
-		return nil
-	}
-	rows, err := tr.db.Query(query, args)
-	if err != nil {
-		logger.L().Logf(0, "ISE | err: %v", err)
-	}
-	var evals []models.PrimeEvaluation
-	for rows.Next() {
-		var pe models.PrimeEvaluation
-		if err = rows.Scan(
-			&pe.ParentID,
-			&pe.Id,
-			&pe.Arg1,
-			&pe.Arg2,
-			&pe.Arg2,
-			&pe.Operation,
-			&pe.OperationTime,
-			&pe.Result,
-			&pe.Error,
-			&pe.CompletedAt,
-			&pe.UserId,
-		); err != nil {
-			logger.L().Logf(0, "not found or error | err: %v", err)
-			return nil
-		}
-		evals = append(evals, pe)
-	}
-
-	return evals
-}
+//func (tr *TasksRepository) GetAllTasks() []models.Expressions {
+//	queryBuilder := squirrel.Select("*").
+//		From("prime_evaluations")
+//
+//	query, args, err := queryBuilder.ToSql()
+//	if err != nil {
+//		logger.L().Fatalf("can't generate query | err: %v", err)
+//		return nil
+//	}
+//	rows, err := tr.db.Query(query, args)
+//	if err != nil {
+//		logger.L().Logf(0, "ISE | err: %v", err)
+//	}
+//	var evals []models.PrimeEvaluation
+//	for rows.Next() {
+//		var pe models.PrimeEvaluation
+//		if err = rows.Scan(
+//			&pe.ParentID,
+//			&pe.Id,
+//			&pe.Arg1,
+//			&pe.Arg2,
+//			&pe.Arg2,
+//			&pe.Operation,
+//			&pe.OperationTime,
+//			&pe.Result,
+//			&pe.Error,
+//			&pe.CompletedAt,
+//			&pe.UserId,
+//		); err != nil {
+//			logger.L().Logf(0, "not found or error | err: %v", err)
+//			return nil
+//		}
+//		evals = append(evals, pe)
+//	}
+//
+//	return evals
+//}
 
 func (tr *TasksRepository) GetPendingTasks() (models.PrimeEvaluation, error) {
 	queryBuilder := squirrel.Select("*").
@@ -79,7 +79,6 @@ func (tr *TasksRepository) GetPendingTasks() (models.PrimeEvaluation, error) {
 		&expression.Result,
 		&expression.Error,
 		&expression.CompletedAt,
-		&expression.UserId,
 	); err != nil {
 		logger.L().Logf(0, "ISE | ERR: %v", err)
 		return models.PrimeEvaluation{}, err
@@ -91,7 +90,7 @@ func (tr *TasksRepository) UpdateExpressionResult(id int, status string, result 
 	queryBuilder := squirrel.Update("evaluations").
 		Set("status", status).
 		Set("result", result).
-		Where(squirrel.Eq{"id": id})
+		Where(squirrel.Eq{"id": id}).PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := queryBuilder.ToSql()
 	if err != nil {
@@ -141,9 +140,20 @@ func (tr *TasksRepository) SavePrimeEvaluation(pe models.PrimeEvaluation) (int, 
 }
 
 func (tr *TasksRepository) GetPrimeEvaluationByParentID(parentID int) ([]models.PrimeEvaluation, error) {
-	queryBuilder := squirrel.Select("id", "parent_id", "arg1", "arg2", "operation", "operation_time", "result", "error", "completed_at").
+	queryBuilder := squirrel.Select(
+		"id",
+		"parent_id",
+		"arg1",
+		"arg2",
+		"operation",
+		"operation_time",
+		"result",
+		"error",
+		"completed_at",
+	).
 		From("prime_evaluations").
-		Where(squirrel.Eq{"parent_id": parentID}).PlaceholderFormat(squirrel.Dollar)
+		Where(squirrel.Eq{"parent_id": parentID}).
+		PlaceholderFormat(squirrel.Dollar)
 
 	query, args, err := queryBuilder.ToSql()
 	if err != nil {

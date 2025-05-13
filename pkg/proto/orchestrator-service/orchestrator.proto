@@ -23,12 +23,7 @@ service OrchestratorService {
     };
   }
   rpc GetTasks (GetTasksRequest) returns (GetTasksResponse);
-  rpc PostExpressionResult (PostExpressionResultRequest) returns (PostExpressionResultResponse){
-    option (google.api.http) = {
-      post: "/api/v1/expressions/agent"
-      body: "*"
-    };
-  }
+  rpc PostExpressionResult (PostExpressionResultRequest) returns (PostExpressionResultResponse);
 }
 
 message GetExpressionsRequest {

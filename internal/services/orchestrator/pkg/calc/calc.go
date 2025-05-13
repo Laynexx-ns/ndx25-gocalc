@@ -64,7 +64,7 @@ func WaitForEvaluationResult(repo *repo.TasksRepository, Id int, timeout time.Du
 			if err != nil {
 				return 0, err
 			}
-			if s.OperationTime != 0 {
+			if s.CompletedAt != nil {
 				return s.Result, nil
 			}
 			if time.Since(start) > timeout {
@@ -147,6 +147,12 @@ func evaluate(parsedExpression []string, parentId int, repo *repo.TasksRepositor
 		return 0, fmt.Errorf("invalid expression")
 	}
 
+	log.Println(stack[0])
+	err := repo.UpdateExpressionResult(parentId, "successfully calculated", stack[0])
+	log.Println("trying to insert result: ", stack[0])
+	if err != nil {
+		logger.L().Logf(0, "can't update result | err: %v", err)
+	}
 	return stack[0], nil
 }
 

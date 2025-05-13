@@ -1,7 +1,6 @@
 package models
 
 import (
-	"github.com/google/uuid"
 	"time"
 )
 
@@ -21,5 +20,4 @@ type PrimeEvaluation struct {
 	Result        float64    `json:"result"`
 	Error         bool       `json:"error"`
 	CompletedAt   *time.Time `json:"completed_at"`
-	UserId        uuid.UUID  `json:"user_id"`
 }

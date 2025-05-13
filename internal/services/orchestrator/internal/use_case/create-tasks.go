@@ -10,14 +10,14 @@ import (
 	"time"
 )
 
-func CreateTasks(repo *repo.TasksRepository) {
-	expression, err := repo.GetPendingTasks()
-	if err != nil {
+func CreateTasks(repo *repo.TasksRepository, repo2 *repo.ExpressionRepository) {
+	expressions, err := repo2.GetAllExpressions()
+	if err != nil || len(expressions) == 0 {
 		logger.L().Logf(0, "can't get pending tasks | err: %v", err)
 		return
 	}
 
-	for _, expr := range expression {
+	for _, expr := range expressions {
 		go func(expr models.Expressions) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
